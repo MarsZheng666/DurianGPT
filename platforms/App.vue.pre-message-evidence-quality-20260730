@@ -1,0 +1,6446 @@
+<script setup>
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import MarkdownIt from 'markdown-it'
+import Cropper from 'cropperjs'
+import 'cropperjs/dist/cropper.css'
+
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  typographer: true,
+  // Markdown 表格对换行比较敏感，先关闭硬换行，再由预处理函数统一修复换行。
+  breaks: false,
+})
+
+const defaultTableOpen = md.renderer.rules.table_open || ((tokens, idx, options, env, self) => self.renderToken(tokens, idx, options))
+const defaultTableClose = md.renderer.rules.table_close || ((tokens, idx, options, env, self) => self.renderToken(tokens, idx, options))
+md.renderer.rules.table_open = (tokens, idx, options, env, self) => `<div class="markdown-table-wrap"><div class="markdown-table-scroll" data-table-scroll>${defaultTableOpen(tokens, idx, options, env, self)}`
+md.renderer.rules.table_close = (tokens, idx, options, env, self) => `${defaultTableClose(tokens, idx, options, env, self)}</div><div class="markdown-table-slider-row"><button class="table-scroll-arrow" data-table-left type="button" aria-label="向左滚动表格">&lsaquo;</button><div class="markdown-table-dragbar" data-table-dragbar role="slider" aria-label="横向滚动表格"><div class="markdown-table-dragthumb" data-table-dragthumb></div></div><button class="table-scroll-arrow" data-table-right type="button" aria-label="向右滚动表格">&rsaquo;</button></div></div>`
+
+const STREAM_RENDER_INTERVAL_MS = 80
+const DEFAULT_CHAT_MAX_TOKENS = 1024
+const IMAGE_ANALYSIS_MAX_WAIT_MS = 180000
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/gpt/api').replace(/\/$/, '')
+const API_KEY = import.meta.env.VITE_DURIAN_API_KEY || 'change-me'
+const LOGIN_ACCOUNTS = [  { username: 'admin2', password: 'admin2' },
+]
+const CURRENT_USER_KEY = 'durian_current_user'
+
+const logoUrl = `${import.meta.env.BASE_URL}assets/durian-logo.png`
+
+const endpoints = {
+  health: '/health',
+  chat: '/chat',
+  chatStream: '/chat/stream3',
+  conversations: '/conversations/',
+  classifyPest: '/classify_pest',
+  analyzePest: '/analyze_pest',
+  analyzePestJob: '/analyze_pest_job',
+  ragStatus: '/rag/status',
+  ragUploadPdf: '/rag/upload-pdf',
+  ragRebuild: '/rag/rebuild',
+}
+
+
+function formatEvidenceScore(item = {}) {
+  // score 是后端 rerank 排序分，可能超过 1，不能直接当百分比。
+  // 前端只显示可解释的 display_score/confidence/dense_score，不显示内部 rerank score。
+  const raw = Number(
+    item.display_score ??
+    item.confidence ??
+    item.dense_score ??
+    0
+  )
+
+  if (!Number.isFinite(raw) || raw <= 0) return ''
+
+  const normalized = raw > 1 && raw <= 100 ? raw / 100 : raw
+  const bounded = Math.max(0, Math.min(normalized, 0.99))
+  return `${Math.round(bounded * 100)}%`
+}
+
+
+function getAuthHeaders() {
+  const user = localStorage.getItem(CURRENT_USER_KEY) || ''
+  const headers = {
+    'X-API-Key': API_KEY,
+  }
+  if (user) {
+    headers['X-User-Id'] = user
+  }
+  return headers
+}
+
+function getUserStorageKey(key, user = localStorage.getItem(CURRENT_USER_KEY) || 'anonymous') {
+  return `durian_${user}_${key}`
+}
+
+const i18n = {
+  zh: {
+    pageTitle: '榴莲GPT',
+    subtitle: '榴莲种植专家助手',
+    loginTitle: '登录榴莲GPT',
+    loginSubtitle: '请选择 admin2 账号进入独立对话空间',
+    username: '账号',
+    password: '密码',
+    login: '登录',
+    logout: '退出',
+    account: '账号',
+    loginFailed: '账号或密码错误',
+    newChat: '新对话',
+    clearHistory: '清空历史',
+    history: '对话历史',
+    noHistory: '暂无对话历史',
+    examples: '示例问题',
+    references: '参考资料',
+    noEvidence: '暂无参考资料',
+    modelInfo: '模型信息',
+    status: '状态',
+    connected: '已连接',
+    disconnected: '未连接',
+    model: '模型',
+    device: '设备',
+    ragStatus: 'RAG 状态',
+    ragChunks: 'RAG 数据块',
+    ragFiles: 'PDF 文件',
+    ragAutoChunks: 'PDF 数据块',
+    ragUploadPdf: '上传 PDF',
+    ragUploading: '正在导入 PDF...',
+    ragUploadDone: 'PDF 已导入 RAG',
+    ragUploadFailed: 'PDF 导入失败',
+    ragRebuild: '重建 RAG',
+    ragRebuildDone: 'RAG 已重建',
+    ragRebuildFailed: 'RAG 重建失败',
+    tokensUsed: '已用 Token',
+    streamMode: '流式输出',
+    send: '发送',
+    placeholder: '请输入你的问题，按 Enter 发送，Shift+Enter 换行',
+    errorEmpty: '请输入问题',
+    errorConnection: '连接失败，请检查服务器',
+    loaded: '对话已加载',
+    loadFailed: '加载对话失败',
+    clearConfirm: '确定要清空所有对话历史吗？',
+    uploadImage: '上传病虫害图片',
+    analyzePest: '病虫害分析',
+    classifyOnly: '仅分类',
+    selectedImage: '已选图片',
+    noImageSelected: '请先选择图片',
+    classification: '分类结果',
+    confidence: '置信度',
+    quality: {
+      high: '高度相关',
+      medium: '部分相关',
+      low: '相关度较低',
+      none: '无相关',
+    },
+    ragEnabled: '✓ 启用',
+    ragDisabled: '✗ 禁用',
+    historyClearedSuccess: '✓ 历史已清空',
+    clearHistoryFailed: '清空历史失败',
+    hallucination: '⚠️ 检测到可能的不可靠信息，请参考右侧证据资料',
+    lowConfidence: '⚠️ 该回答可信度较低，请谨慎参考',
+    imageAnalyzePrompt: '请分析这张图片中的病虫害情况，并提供防治建议。',
+    welcomeFeatures: 'RAG + 对话历史 + 流式输出',
+    uploadImageTitle: '上传图片',
+    imageMessagePrefix: '[图片]',
+    evidenceLabel: '文献',
+    expandText: '展开全文',
+    collapseText: '收起',
+    unknownSource: '未知来源',
+    messageCountUnit: '条消息',
+    unknownClassification: '未知',
+    summaryTitle: '结论摘要',
+    stepsTitle: '操作步骤',
+    risksTitle: '风险提示',
+    dataTitle: '参数参考',
+    tempLabel: '温度',
+    topPLabel: 'Top P',
+    tokensLabel: 'Token 数',
+    userAvatar: '我',
+    assistantAvatar: 'AI',
+    idLabel: '编号',
+    deleteConversation: '删除对话',
+    deleteConversationConfirm: '确定要删除这条对话吗？',
+    deleteConversationSuccess: '对话已删除',
+    deleteConversationFailed: '删除对话失败',
+    cropImageTitle: '裁剪图片',
+    cancel: '取消',
+    confirmCrop: '确认裁剪',
+    imageUploading: '图片正在上传，请稍候...',
+    imageTaskCreating: '正在创建图片分析任务...',
+    imageAnalyzing: '图片分析中，请稍候...',
+    imageAnalysisDone: '图片分析完成',
+    imageAnalysisFailed: '图片分析失败，请检查服务器或稍后重试。',
+    imageAnalysisTimeout: '图片分析超时，请稍后重试。',
+    imageJobPolling: '正在获取图片分析结果...',
+    imageClassifying: '正在识别病虫害类别...',
+    imageGeneratingAdvice: '正在生成详细建议...',
+    classificationResultTitle: '分类结果',
+  },
+  en: {
+    pageTitle: 'DurianGPT',
+    subtitle: 'Durian cultivation expert assistant',
+    loginTitle: 'Sign in to DurianGPT',
+    loginSubtitle: 'Use admin2 to enter a separate chat space',
+    username: 'Username',
+    password: 'Password',
+    login: 'Sign In',
+    logout: 'Log Out',
+    account: 'Account',
+    loginFailed: 'Invalid username or password',
+    newChat: 'New Chat',
+    clearHistory: 'Clear History',
+    history: 'Chat History',
+    noHistory: 'No chat history',
+    examples: 'Example Questions',
+    references: 'References',
+    noEvidence: 'No references',
+    modelInfo: 'Model Info',
+    status: 'Status',
+    connected: 'Connected',
+    disconnected: 'Disconnected',
+    model: 'Model',
+    device: 'Device',
+    ragStatus: 'RAG Status',
+    ragChunks: 'RAG Chunks',
+    ragFiles: 'PDF Files',
+    ragAutoChunks: 'PDF Chunks',
+    ragUploadPdf: 'Upload PDF',
+    ragUploading: 'Importing PDF...',
+    ragUploadDone: 'PDF imported into RAG',
+    ragUploadFailed: 'PDF import failed',
+    ragRebuild: 'Rebuild RAG',
+    ragRebuildDone: 'RAG rebuilt',
+    ragRebuildFailed: 'RAG rebuild failed',
+    tokensUsed: 'Tokens Used',
+    streamMode: 'Stream mode',
+    send: 'Send',
+    placeholder: 'Ask a question. Press Enter to send, Shift+Enter for newline',
+    errorEmpty: 'Please enter a question',
+    errorConnection: 'Connection failed, please check the server',
+    loaded: 'Conversation loaded',
+    loadFailed: 'Failed to load conversation',
+    clearConfirm: 'Clear all conversation history?',
+    uploadImage: 'Upload pest image',
+    analyzePest: 'Pest analysis',
+    classifyOnly: 'Classify only',
+    selectedImage: 'Selected image',
+    noImageSelected: 'Please select an image first',
+    classification: 'Classification',
+    confidence: 'Confidence',
+    quality: {
+      high: 'Highly relevant',
+      medium: 'Partially relevant',
+      low: 'Low relevance',
+      none: 'No relevance',
+    },
+    ragEnabled: '✓ Enabled',
+    ragDisabled: '✗ Disabled',
+    historyClearedSuccess: '✓ History cleared',
+    clearHistoryFailed: 'Failed to clear history',
+    hallucination: '⚠️ Detected potentially unreliable information, please refer to the evidence on the right',
+    lowConfidence: '⚠️ This answer has low credibility, please refer to it carefully',
+    summaryTitle: 'Summary',
+    stepsTitle: 'Steps',
+    risksTitle: 'Risk Warning',
+    dataTitle: 'Parameter Reference',
+    highTrust: '🟢 Highly Trustworthy',
+    mediumTrust: '🟡 Moderately Trustworthy',
+    lowTrust: '🔴 Low Trustworthy',
+    noRelevance: '⚪ No Relevance',
+    expandText: 'Expand',
+    collapseText: 'Collapse',
+    unknownSource: 'Unknown source',
+    imageAnalyzePrompt: 'Please analyze the pests and diseases in this image and provide prevention suggestions.',
+    welcomeFeatures: 'RAG + Chat History + Stream Output',
+    uploadImageTitle: 'Upload Image',
+    imageMessagePrefix: '[Image]',
+    evidenceLabel: 'Reference',
+    messageCountUnit: 'messages',
+    unknownClassification: 'Unknown',
+    tempLabel: 'Temperature',
+    topPLabel: 'Top P',
+    tokensLabel: 'Tokens',
+    deleteConversation: 'Delete conversation',
+    deleteConversationConfirm: 'Delete this conversation?',
+    deleteConversationSuccess: 'Conversation deleted',
+    deleteConversationFailed: 'Failed to delete conversation',
+    cropImageTitle: 'Crop Image',
+    cancel: 'Cancel',
+    confirmCrop: 'Confirm Crop',
+    imageUploading: 'Uploading image, please wait...',
+    imageTaskCreating: 'Creating image analysis task...',
+    imageAnalyzing: 'Analyzing image, please wait...',
+    imageAnalysisDone: 'Image analysis completed',
+    imageAnalysisFailed: 'Image analysis failed. Please check the server or try again later.',
+    imageAnalysisTimeout: 'Image analysis timed out. Please try again later.',
+    imageJobPolling: 'Fetching image analysis result...',
+    imageClassifying: 'Identifying pest or disease category...',
+    imageGeneratingAdvice: 'Generating detailed recommendations...',
+    classificationResultTitle: 'Classification Result',
+  },
+  ms: {
+    pageTitle: 'DurianGPT',
+    subtitle: 'Pembantu pakar penanaman durian',
+    loginTitle: 'Log Masuk DurianGPT',
+    loginSubtitle: 'Gunakan admin2 untuk ruang perbualan berasingan',
+    username: 'Akaun',
+    password: 'Kata laluan',
+    login: 'Log Masuk',
+    logout: 'Log Keluar',
+    account: 'Akaun',
+    loginFailed: 'Akaun atau kata laluan salah',
+    newChat: 'Perbualan Baharu',
+    clearHistory: 'Kosongkan Sejarah',
+    history: 'Sejarah Perbualan',
+    noHistory: 'Tiada sejarah perbualan',
+    examples: 'Soalan Contoh',
+    references: 'Rujukan',
+    noEvidence: 'Tiada rujukan',
+    modelInfo: 'Maklumat Model',
+    status: 'Status',
+    connected: 'Bersambung',
+    disconnected: 'Tidak Bersambung',
+    model: 'Model',
+    device: 'Peranti',
+    ragStatus: 'Status RAG',
+    ragChunks: 'Chunk RAG',
+    ragFiles: 'Fail PDF',
+    ragAutoChunks: 'Chunk PDF',
+    ragUploadPdf: 'Muat Naik PDF',
+    ragUploading: 'Mengimport PDF...',
+    ragUploadDone: 'PDF telah diimport ke RAG',
+    ragUploadFailed: 'Import PDF gagal',
+    ragRebuild: 'Bina Semula RAG',
+    ragRebuildDone: 'RAG telah dibina semula',
+    ragRebuildFailed: 'Bina semula RAG gagal',
+    tokensUsed: 'Token Digunakan',
+    streamMode: 'Mod aliran',
+    send: 'Hantar',
+    placeholder: 'Masukkan soalan. Tekan Enter untuk hantar, Shift+Enter untuk baris baru',
+    errorEmpty: 'Sila masukkan soalan',
+    errorConnection: 'Sambungan gagal, sila periksa pelayan',
+    loaded: 'Perbualan dimuatkan',
+    loadFailed: 'Gagal memuatkan perbualan',
+    clearConfirm: 'Kosongkan semua sejarah perbualan?',
+    uploadImage: 'Muat naik imej perosak',
+    analyzePest: 'Analisis perosak',
+    classifyOnly: 'Klasifikasi sahaja',
+    selectedImage: 'Imej dipilih',
+    noImageSelected: 'Sila pilih imej dahulu',
+    classification: 'Klasifikasi',
+    confidence: 'Keyakinan',
+    quality: {
+      high: 'Sangat berkaitan',
+      medium: 'Sebahagian berkaitan',
+      low: 'Kurang berkaitan',
+      none: 'Tiada kaitan',
+    },
+    ragEnabled: '✓ Diaktifkan',
+    ragDisabled: '✗ Dimatikan',
+    historyClearedSuccess: '✓ Sejarah telah dikosongkan',
+    clearHistoryFailed: 'Gagal mengosongkan sejarah',
+    hallucination: '⚠️ Mengesan maklumat yang mungkin tidak boleh dipercayai, sila rujuk bukti di sebelah kanan',
+    lowConfidence: '⚠️ Jawapan ini mempunyai kredibiliti yang rendah, sila rujuk dengan berhati-hati',
+    summaryTitle: 'Ringkasan',
+    stepsTitle: 'Langkah-langkah',
+    risksTitle: 'Amaran Risiko',
+    dataTitle: 'Rujukan Parameter',
+    highTrust: '🟢 Sangat Boleh Dipercayai',
+    mediumTrust: '🟡 Sederhana Boleh Dipercayai',
+    lowTrust: '🔴 Kurang Boleh Dipercayai',
+    noRelevance: '⚪ Tiada Kaitan',
+    expandText: 'Kembangkan',
+    collapseText: 'Tutup',
+    unknownSource: 'Sumber tidak diketahui',
+    imageAnalyzePrompt: 'Sila analisis perosak dan penyakit dalam imej ini dan berikan cadangan pencegahan.',
+    welcomeFeatures: 'RAG + Sejarah Perbualan + Output Aliran',
+    uploadImageTitle: 'Muat Naik Imej',
+    imageMessagePrefix: '[Imej]',
+    evidenceLabel: 'Rujukan',
+    messageCountUnit: 'mesej',
+    unknownClassification: 'Tidak Diketahui',
+    tempLabel: 'Suhu',
+    topPLabel: 'Top P',
+    tokensLabel: 'Token',
+    deleteConversation: 'Padam perbualan',
+    deleteConversationConfirm: 'Padam perbualan ini?',
+    deleteConversationSuccess: 'Perbualan telah dipadam',
+    deleteConversationFailed: 'Gagal memadam perbualan',
+    cropImageTitle: 'Pangkas Imej',
+    cancel: 'Batal',
+    confirmCrop: 'Sahkan Pangkas',
+    imageUploading: 'Imej sedang dimuat naik, sila tunggu...',
+    imageTaskCreating: 'Sedang mencipta tugas analisis imej...',
+    imageAnalyzing: 'Imej sedang dianalisis, sila tunggu...',
+    imageAnalysisDone: 'Analisis imej selesai',
+    imageAnalysisFailed: 'Analisis imej gagal. Sila semak pelayan atau cuba lagi kemudian.',
+    imageAnalysisTimeout: 'Analisis imej tamat masa. Sila cuba lagi kemudian.',
+    imageJobPolling: 'Sedang mendapatkan keputusan analisis imej...',
+    imageClassifying: 'Sedang mengenal pasti kategori perosak atau penyakit...',
+    imageGeneratingAdvice: 'Sedang menjana cadangan terperinci...',
+    classificationResultTitle: 'Keputusan Klasifikasi',
+  },
+  th: {
+    pageTitle: 'DurianGPT',
+    subtitle: 'ผู้ช่วยผู้เชี่ยวชาญด้านการปลูกทุเรียน',
+    loginTitle: 'เข้าสู่ระบบ DurianGPT',
+    loginSubtitle: 'ใช้ admin2 เพื่อแยกพื้นที่สนทนา',
+    username: 'บัญชี',
+    password: 'รหัสผ่าน',
+    login: 'เข้าสู่ระบบ',
+    logout: 'ออกจากระบบ',
+    account: 'บัญชี',
+    loginFailed: 'บัญชีหรือรหัสผ่านไม่ถูกต้อง',
+    newChat: 'สนทนาใหม่',
+    clearHistory: 'ล้างประวัติ',
+    history: 'ประวัติการสนทนา',
+    noHistory: 'ไม่มีประวัติการสนทนา',
+    examples: 'คำถามตัวอย่าง',
+    references: 'อ้างอิง',
+    noEvidence: 'ไม่มีอ้างอิง',
+    modelInfo: 'ข้อมูลโมเดล',
+    status: 'สถานะ',
+    connected: 'เชื่อมต่อแล้ว',
+    disconnected: 'ไม่ได้เชื่อมต่อ',
+    model: 'โมเดล',
+    device: 'อุปกรณ์',
+    ragStatus: 'สถานะ RAG',
+    ragChunks: 'ชิ้น RAG',
+    ragFiles: 'ไฟล์ PDF',
+    ragAutoChunks: 'ชิ้น PDF',
+    ragUploadPdf: 'อัปโหลด PDF',
+    ragUploading: 'กำลังนำเข้า PDF...',
+    ragUploadDone: 'นำเข้า PDF เข้า RAG แล้ว',
+    ragUploadFailed: 'นำเข้า PDF ไม่สำเร็จ',
+    ragRebuild: 'สร้าง RAG ใหม่',
+    ragRebuildDone: 'สร้าง RAG ใหม่แล้ว',
+    ragRebuildFailed: 'สร้าง RAG ใหม่ไม่สำเร็จ',
+    tokensUsed: 'โทเค็นที่ใช้',
+    streamMode: 'โหมดสตรีม',
+    send: 'ส่ง',
+    placeholder: 'ป้อนคำถาม กด Enter เพื่อส่ง Shift+Enter สำหรับบรรทัดใหม่',
+    errorEmpty: 'โปรดป้อนคำถาม',
+    errorConnection: 'การเชื่อมต่อล้มเหลว โปรดตรวจสอบเซิร์ฟเวอร์',
+    loaded: 'โหลดการสนทนาแล้ว',
+    loadFailed: 'ไม่สามารถโหลดการสนทนา',
+    clearConfirm: 'ล้างประวัติการสนทนาทั้งหมด?',
+    uploadImage: 'อัปโหลดรูปภาพศัตรูพืช',
+    analyzePest: 'วิเคราะห์ศัตรูพืช',
+    classifyOnly: 'จำแนกเท่านั้น',
+    selectedImage: 'เลือกรูปภาพแล้ว',
+    noImageSelected: 'โปรดเลือกรูปภาพก่อน',
+    classification: 'การจำแนก',
+    confidence: 'ความมั่นใจ',
+    quality: {
+      high: 'เกี่ยวข้องมาก',
+      medium: 'เกี่ยวข้องบางส่วน',
+      low: 'เกี่ยวข้องน้อย',
+      none: 'ไม่เกี่ยวข้อง',
+    },
+    ragEnabled: '✓ เปิดใช้งาน',
+    ragDisabled: '✗ ปิดใช้งาน',
+    historyClearedSuccess: '✓ ล้างประวัติแล้ว',
+    clearHistoryFailed: 'ไม่สามารถล้างประวัติ',
+    hallucination: '⚠️ ตรวจพบข้อมูลที่อาจไม่น่าเชื่อถือ โปรดดูหลักฐานทางขวา',
+    lowConfidence: '⚠️ คำตอบนี้มีความน่าเชื่อถือต่ำ โปรดอ้างอิงอย่างระมัดระวัง',
+    summaryTitle: 'สรุป',
+    stepsTitle: 'ขั้นตอน',
+    risksTitle: 'คำเตือนความเสี่ยง',
+    dataTitle: 'อ้างอิงพารามิเตอร์',
+    highTrust: '🟢 น่าเชื่อถือมาก',
+    mediumTrust: '🟡 น่าเชื่อถือปานกลาง',
+    lowTrust: '🔴 น่าเชื่อถือน้อย',
+    noRelevance: '⚪ ไม่เกี่ยวข้อง',
+    expandText: 'ขยาย',
+    collapseText: 'ยุบ',
+    unknownSource: 'แหล่งที่มาไม่ทราบ',
+    imageAnalyzePrompt: 'โปรดวิเคราะห์ศัตรูพืชและโรคในรูปภาพนี้ และให้คำแนะนำในการป้องกัน',
+    welcomeFeatures: 'RAG + ประวัติการสนทนา + เอาต์พุตสตรีม',
+    uploadImageTitle: 'อัปโหลดรูปภาพ',
+    imageMessagePrefix: '[รูปภาพ]',
+    evidenceLabel: 'อ้างอิง',
+    messageCountUnit: 'ข้อความ',
+    unknownClassification: 'ไม่ทราบ',
+    tempLabel: 'อุณหภูมิ',
+    topPLabel: 'Top P',
+    tokensLabel: 'โทเค็น',
+    deleteConversation: 'ลบการสนทนา',
+    deleteConversationConfirm: 'ต้องการลบการสนทนานี้หรือไม่?',
+    deleteConversationSuccess: 'ลบการสนทนาแล้ว',
+    deleteConversationFailed: 'ลบการสนทนาไม่สำเร็จ',
+    cropImageTitle: 'ครอบตัดรูปภาพ',
+    cancel: 'ยกเลิก',
+    confirmCrop: 'ยืนยันการครอบตัด',
+    imageUploading: 'กำลังอัปโหลดรูปภาพ โปรดรอสักครู่...',
+    imageTaskCreating: 'กำลังสร้างงานวิเคราะห์รูปภาพ...',
+    imageAnalyzing: 'กำลังวิเคราะห์รูปภาพ โปรดรอสักครู่...',
+    imageAnalysisDone: 'วิเคราะห์รูปภาพเสร็จแล้ว',
+    imageAnalysisFailed: 'วิเคราะห์รูปภาพล้มเหลว โปรดตรวจสอบเซิร์ฟเวอร์หรือลองใหม่ภายหลัง',
+    imageAnalysisTimeout: 'การวิเคราะห์รูปภาพหมดเวลา โปรดลองใหม่ภายหลัง',
+    imageJobPolling: 'กำลังดึงผลการวิเคราะห์รูปภาพ...',
+    imageClassifying: 'กำลังระบุประเภทศัตรูพืชหรือโรค...',
+    imageGeneratingAdvice: 'กำลังสร้างคำแนะนำโดยละเอียด...',
+    classificationResultTitle: 'ผลการจำแนก',
+  },
+}
+
+function normalizeNewlines(text) {
+  if (!text) return ''
+  return String(text)
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\uFFFD/g, '')
+}
+
+function normalizeMarkdownTables(text) {
+  if (!text) return ''
+
+  let result = normalizeNewlines(text)
+
+  // 标题前后补空行，避免 "上一句## 标题" 被当成普通文本。
+  result = result.replace(/([^\n])\n?(#{1,6}\s+)/g, '$1\n\n$2')
+  result = result.replace(/(#{1,6}[^\n]+)\n(?!\n|#|[-*+\d]+\.|\|)/g, '$1\n\n')
+
+  // 标准化 Markdown 表格分隔线。
+  result = result.replace(/^\s*\|?\s*((?::?-{3,}:?\s*\|\s*)+(?::?-{3,}:?)?)\s*\|?\s*$/gm, (line) => {
+    const cells = line
+      .trim()
+      .replace(/^\|/, '')
+      .replace(/\|$/, '')
+      .split('|')
+      .map(() => '---')
+    return `| ${cells.join(' | ')} |`
+  })
+
+  // 表格行前后补空行。Markdown-it 需要表格与普通段落分开。
+  const lines = result.split('\n')
+  const output = []
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i].trimEnd()
+    const isTableRow = /^\s*\|.+\|\s*$/.test(line)
+    const prev = output[output.length - 1] || ''
+    const prevIsTableRow = /^\s*\|.+\|\s*$/.test(prev)
+
+    if (isTableRow && output.length > 0 && prev.trim() !== '' && !prevIsTableRow) {
+      output.push('')
+    }
+
+    output.push(line)
+
+    const next = lines[i + 1] || ''
+    const nextIsTableRow = /^\s*\|.+\|\s*$/.test(next)
+    if (isTableRow && !nextIsTableRow && next.trim() !== '') {
+      output.push('')
+    }
+  }
+
+  return output.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+function normalizeModelOutput(text) {
+  return normalizeMarkdownTables(filterResponse(normalizeNewlines(text)))
+}
+
+function normalizeStreamChunk(text) {
+  return normalizeNewlines(text)
+}
+
+function renderMarkdown(text) {
+  return md.render(normalizeModelOutput(text))
+}
+
+function hasMarkdownTable(text = '') {
+  const normalized = normalizeModelOutput(text || '')
+  return /(^|\n)\s*\|.+\|\s*\n\s*\|[\s:|-]+\|/.test(normalized) || /<table[\s>]/i.test(normalized)
+}
+
+async function readApiPayload(response) {
+  const text = await response.text().catch(() => '')
+  if (!text) return {}
+
+  try {
+    return JSON.parse(text)
+  } catch (error) {
+    return { detail: text }
+  }
+}
+
+function getApiErrorDetail(payload, fallback) {
+  const detail = payload?.detail ?? payload?.error ?? payload?.message
+  if (Array.isArray(detail)) {
+    return detail.map((item) => item?.msg || item?.message || JSON.stringify(item)).join('; ') || fallback
+  }
+  if (detail && typeof detail === 'object') {
+    return detail.msg || detail.message || JSON.stringify(detail)
+  }
+  return detail ? String(detail) : fallback
+}
+
+const exampleQuestions = {
+  zh: [
+    '猫山王榴莲适合什么土壤？',
+    '榴莲幼苗为什么叶片发黄？',
+    '榴莲开花期如何施肥？',
+    '榴莲常见病虫害有哪些？',
+  ],
+  en: [
+    'What soil is suitable for Musang King durian?',
+    'Why are durian seedling leaves turning yellow?',
+    'How to fertilize during the flowering stage of durian?',
+    'What are common durian pests and diseases?',
+  ],
+  ms: [
+    'Tanah apa sesuai untuk durian Musang King?',
+    'Mengapa daun anak pokok durian menjadi kuning?',
+    'Bagaimana membaja semasa peringkat berbunga durian?',
+    'Apakah perosak dan penyakit durian yang biasa?',
+  ],
+  th: [
+    'ดินที่เหมาะสมสำหรับทุเรียนมุสังคิง?',
+    'ทำไมใบของต้นทุเรียนอ่อนจึงเหลือง?',
+    'วิธีการให้ปุ๋ยในช่วงการออกดอกของทุเรียน?',
+    'ศัตรูพืชและโรคทุเรียนทั่วไปมีอะไรบ้าง?',
+  ],
+}
+
+const language = ref(localStorage.getItem('language') || 'zh')
+const currentUser = ref(localStorage.getItem(CURRENT_USER_KEY) || '')
+const loginUsername = ref(currentUser.value || 'admin2')
+const loginPassword = ref('')
+const loginError = ref('')
+const userInput = ref('')
+const streamMode = ref(true)
+const temperature = ref(0.7)
+const topP = ref(0.9)
+const maxTokens = ref(Number(localStorage.getItem('maxTokens') || DEFAULT_CHAT_MAX_TOKENS))
+
+const responseLanguage = computed(() => language.value)
+
+const isConnected = ref(false)
+const modelInfo = ref({
+  model_path: '-',
+  device: '-',
+  rag_enabled: false,
+  rag_chunks: 0,
+  rag_pdf_files: 0,
+  rag_auto_chunks: 0,
+})
+
+const messages = ref([])
+const totalTokens = ref(Number(localStorage.getItem(getUserStorageKey('totalTokens')) || 0))
+const currentConversationId = ref(null)
+const conversations = ref([])
+const evidence = ref([])
+const evidenceQuality = ref('none')
+const activeEvidenceMessageIndex = ref(null)
+const showMobileTableControls = ref(false)
+const toasts = ref([])
+const isSending = ref(false)
+const evidenceExpanded = ref({})
+watch(evidenceQuality, (quality) => {
+  if (quality === 'none' || quality === 'irrelevant') {
+    evidence.value = []
+    evidenceExpanded.value = {}
+  }
+})
+
+const pestImageFile = ref(null)
+const pestImagePreview = ref(null)
+const pestClassification = ref(null)
+const showHistorySidebar = ref(false)
+const messageImages = ref({})
+const showCropperModal = ref(false)
+const cropperInstance = ref(null)
+const originalImagePreview = ref(null)
+const isAnalyzingImage = ref(false)
+const ragPdfInput = ref(null)
+const mobileRagPdfInput = ref(null)
+const isUploadingRagPdf = ref(false)
+const ragUploadStatus = ref('')
+const rightSidebarCollapsed = ref(false)
+const rightSidebarWidth = ref(420)
+const isResizingRightSidebar = ref(false)
+
+async function openMobileHistory() {
+  showHistorySidebar.value = true
+  await loadConversations()
+}
+
+async function loadConversationFromMobile(convId) {
+  await loadConversation(convId)
+  showHistorySidebar.value = false
+}
+
+// 右侧边栏拉伸处理
+function startResizeRightSidebar(e) {
+  isResizingRightSidebar.value = true
+  const startX = e.clientX
+  const startWidth = rightSidebarWidth.value
+
+  const handleMouseMove = (moveEvent) => {
+    const diff = startX - moveEvent.clientX
+    const newWidth = Math.max(340, Math.min(720, startWidth + diff))
+    rightSidebarWidth.value = newWidth
+  }
+
+  const handleMouseUp = () => {
+    isResizingRightSidebar.value = false
+    document.removeEventListener('mousemove', handleMouseMove)
+    document.removeEventListener('mouseup', handleMouseUp)
+  }
+
+  document.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('mouseup', handleMouseUp)
+}
+
+// 对话管理函数
+async function loadConversations() {
+  if (!isLoggedIn.value) return
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/conversations/`, {
+      headers: getAuthHeaders(),
+    })
+    if (!response.ok) throw new Error('加载对话列表失败')
+    const data = await response.json()
+    conversations.value = data.conversations || []
+  } catch (error) {
+    console.error('加载对话列表失败:', error)
+  }
+}
+
+async function createConversationIfNeeded(firstUserText) {
+  if (!isLoggedIn.value) {
+    throw new Error('未登录')
+  }
+
+  if (currentConversationId.value) return currentConversationId.value
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/conversations/`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    })
+    if (!response.ok) throw new Error('创建对话失败')
+    const data = await response.json()
+    currentConversationId.value = data.id
+    await loadConversations()
+    return data.id
+  } catch (error) {
+    console.error('创建对话失败:', error)
+    pushToast('创建对话失败', 'error')
+    return null
+  }
+}
+
+  async function saveMessageToConversation(role, content = '', imageUrl = null, activeContextCard = null, messageEvidence = [], messageEvidenceQuality = 'none') {
+    if (!currentConversationId.value) {
+      const convId = await createConversationIfNeeded(content || t.value.imageMessagePrefix)
+      if (!convId) return
+    }
+
+    try {
+      let contentToSave = normalizeModelOutput(content || '')
+      if (role === 'assistant') {
+        contentToSave += buildEvidenceContentComment(messageEvidence, messageEvidenceQuality)
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/conversations/${currentConversationId.value}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+          },
+          body: JSON.stringify({
+            role,
+            content: contentToSave,
+            image_url: imageUrl,
+            active_context_card: activeContextCard || null,
+          }),
+        }
+      )
+
+      if (!response.ok) throw new Error('保存消息失败')
+      await loadConversations()
+    } catch (error) {
+      console.error('保存消息失败:', error)
+    }
+  }
+
+async function deleteConversation(convId) {
+  if (!isLoggedIn.value) return
+  if (!convId) return
+
+  const ok = window.confirm(t.value.deleteConversationConfirm || '确定要删除这条对话吗？')
+  if (!ok) return
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoints.conversations}/${convId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Delete failed: ${response.status}`)
+    }
+
+    conversations.value = conversations.value.filter((item) => item.id !== convId)
+    removeEvidenceCache(convId)
+
+    if (currentConversationId.value === convId) {
+      startNewChat()
+    }
+
+    pushToast(t.value.deleteConversationSuccess || '对话已删除', 'success')
+  } catch (error) {
+    console.error('删除对话失败:', error)
+    pushToast(t.value.deleteConversationFailed || '删除对话失败', 'error')
+  }
+}
+
+async function loadConversation(convId) {
+  if (!isLoggedIn.value) return
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/conversations/${convId}`, {
+      headers: getAuthHeaders(),
+    })
+    if (!response.ok) throw new Error('加载对话失败')
+    const data = await response.json()
+    
+    currentConversationId.value = convId
+    
+    const restoredImages = {}
+    
+    const restoredMessages = data.messages.map((m, index) => {
+      const savedEvidence = m.role === 'assistant'
+        ? extractEvidenceContentComment(m.content || '')
+        : { content: m.content || '', evidence: [], evidence_quality: 'none' }
+      const msg = {
+        role: m.role,
+        content: normalizeModelOutput(savedEvidence.content || ''),
+        active_context_card: m.active_context_card || null,
+      }
+
+      const visibleSavedEvidence = getVisibleEvidenceList(
+        savedEvidence.evidence,
+        savedEvidence.evidence_quality || 'none'
+      )
+      if (visibleSavedEvidence.length) {
+        msg.evidence = visibleSavedEvidence
+        msg.evidence_quality = savedEvidence.evidence_quality || 'none'
+      } else {
+        msg.evidence = []
+        msg.evidence_quality = 'none'
+      }
+      
+      if (m.image_url) {
+        const imageKey = `history_img_${convId}_${index}`
+        msg.imageKey = imageKey
+        restoredImages[imageKey] = normalizeImageUrl(m.image_url)
+      }
+      
+      return msg
+    })
+
+    messages.value = attachEvidenceHistoryToMessages(convId, restoredMessages)
+    
+    messageImages.value = restoredImages
+    
+    const cachedEvidence = loadEvidenceCache(convId)
+    const latestMessageEvidence = getLatestMessageEvidence(messages.value)
+    const latestVisibleEvidence = getVisibleEvidenceList(
+      latestMessageEvidence.evidence,
+      latestMessageEvidence.evidence_quality || 'none'
+    )
+    const cachedVisibleEvidence = getVisibleEvidenceList(
+      cachedEvidence.evidence,
+      cachedEvidence.evidence_quality || 'none'
+    )
+
+    evidence.value = latestVisibleEvidence.length ? latestVisibleEvidence : cachedVisibleEvidence
+    evidenceQuality.value = evidence.value.length
+      ? (latestVisibleEvidence.length ? latestMessageEvidence.evidence_quality : cachedEvidence.evidence_quality)
+      : 'none'
+    activeEvidenceMessageIndex.value = latestMessageEvidence.message_index
+    evidenceExpanded.value = {}
+    
+    await scrollToBottom(true)
+  } catch (error) {
+    console.error('加载对话失败:', error)
+    pushToast('加载对话失败', 'error')
+    
+    if (localStorage.getItem(getUserStorageKey('currentConversationId')) === convId) {
+      localStorage.removeItem(getUserStorageKey('currentConversationId'))
+      currentConversationId.value = null
+    }
+  }
+}
+
+const chatMessagesRef = ref(null)
+const composerInputRef = ref(null)
+let healthTimer = null
+let toastCounter = 0
+let sendingLock = false
+
+function normalizeImageUrl(url) {
+  if (!url) return ''
+  if (url.startsWith('data:')) return url
+  if (url.startsWith('blob:')) return url
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  if (url.startsWith(`${API_BASE_URL}/`)) return url
+  if (url.startsWith('/uploads/')) return `${API_BASE_URL}${url}`
+  return url
+}
+
+
+function buildHiddenImageContext({ analyzeData, finalResponse, imageQuestion, fileName }) {
+  const context = {
+    type: 'durian_image_context',
+    user_question: imageQuestion || '',
+    image_url: analyzeData?.image_url || '',
+    file_name: fileName || '',
+    visual_label: analyzeData?.visual_observation || '',
+    assistant_summary: finalResponse || '',
+    created_at: new Date().toISOString(),
+  }
+  // MarkdownIt 开启 html:true 时 HTML 注释不会显示，但会保存在历史消息里，后续追问可带给后端。
+  return `<!-- [Image context]\n${JSON.stringify(context, null, 2)}\n-->`
+}
+
+function isImageRelatedMessage(msg) {
+  const content = msg.content || ''
+
+  if (msg.imageKey) return true
+  if (msg.image_url) return true
+  if (msg.messageType === 'image') return true
+  if (msg.messageType === 'image_analysis') return true
+
+  return (
+    content.includes('## 分类结果') ||
+    content.includes('## Classification') ||
+    content.includes('## Klasifikasi') ||
+    content.includes('## การจำแนก') ||
+    content.includes('图像分类模型识别结果') ||
+    content.includes('image classification model') ||
+    content.includes('model klasifikasi imej') ||
+    content.includes('โมเดลจำแนกรูปภาพ') ||
+    content.includes('识别结论') ||
+    content.includes('该图片被分类为')
+  )
+}
+
+function getEvidenceStorageKey(convId) {
+  return getUserStorageKey(`evidence_${convId}`)
+}
+
+function getEvidenceHistoryStorageKey(convId) {
+  return getUserStorageKey(`evidence_history_${convId}`)
+}
+
+function stableTextHash(text = '') {
+  let hash = 0
+  const value = String(text || '')
+  for (let i = 0; i < value.length; i += 1) {
+    hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0
+  }
+  return String(hash)
+}
+
+function stripEvidenceContentComment(content = '') {
+  return String(content || '').replace(/<!--\s*\[RAG evidence encoded\][\s\S]*?-->/gi, '').trim()
+}
+
+function extractEvidenceContentComment(content = '') {
+  const rawContent = String(content || '')
+  const match = rawContent.match(/<!--\s*\[RAG evidence encoded\]\s*([\s\S]*?)-->/i)
+  if (!match) {
+    return {
+      content: rawContent,
+      evidence: [],
+      evidence_quality: 'none',
+    }
+  }
+
+  try {
+    const parsed = JSON.parse(decodeURIComponent(match[1].trim()))
+    return {
+      content: stripEvidenceContentComment(rawContent),
+      evidence: Array.isArray(parsed.evidence) ? parsed.evidence : [],
+      evidence_quality: parsed.evidence_quality || 'none',
+    }
+  } catch (error) {
+    console.warn('Failed to parse saved RAG evidence payload:', error)
+    return {
+      content: stripEvidenceContentComment(rawContent),
+      evidence: [],
+      evidence_quality: 'none',
+    }
+  }
+}
+
+function getPersistableEvidenceList(evidenceList = []) {
+  return Array.isArray(evidenceList)
+    ? evidenceList.filter((item) => item && (item.text || item.display_text || item.translated_text))
+    : []
+}
+
+function buildEvidenceContentComment(evidenceList = [], quality = 'none') {
+  const persistable = getPersistableEvidenceList(evidenceList)
+  if (!persistable.length) return ''
+
+  const payload = {
+    evidence: persistable,
+    evidence_quality: quality || 'none',
+    saved_at: Date.now(),
+  }
+
+  return `\n\n<!-- [RAG evidence encoded]\n${encodeURIComponent(JSON.stringify(payload))}\n-->`
+}
+
+function saveEvidenceCache(convId, evidenceList, quality = 'none') {
+  if (!convId) return
+
+  const payload = {
+    evidence: evidenceList || [],
+    evidence_quality: quality || 'none',
+    saved_at: Date.now(),
+  }
+
+  localStorage.setItem(getEvidenceStorageKey(convId), JSON.stringify(payload))
+}
+
+function saveEvidenceHistoryCache(convId, messageList = messages.value) {
+  if (!convId) return
+
+  const entries = []
+  let assistantIndex = 0
+  for (const message of messageList || []) {
+    if (message?.role !== 'assistant') continue
+    assistantIndex += 1
+    const messageEvidence = getPersistableEvidenceList(message.evidence)
+    if (!messageEvidence.length) continue
+    entries.push({
+      assistant_index: assistantIndex,
+      content_hash: stableTextHash(message.content || ''),
+      evidence: messageEvidence,
+      evidence_quality: message.evidence_quality || 'none',
+    })
+  }
+
+  localStorage.setItem(
+    getEvidenceHistoryStorageKey(convId),
+    JSON.stringify({ entries, saved_at: Date.now() })
+  )
+}
+
+function loadEvidenceCache(convId) {
+  if (!convId) {
+    return {
+      evidence: [],
+      evidence_quality: 'none',
+    }
+  }
+
+  try {
+    const raw = localStorage.getItem(getEvidenceStorageKey(convId))
+    if (!raw) {
+      return {
+        evidence: [],
+        evidence_quality: 'none',
+      }
+    }
+
+    const parsed = JSON.parse(raw)
+    return {
+      evidence: Array.isArray(parsed.evidence) ? parsed.evidence : [],
+      evidence_quality: parsed.evidence_quality || 'none',
+    }
+  } catch (error) {
+    console.error('读取参考资料缓存失败:', error)
+    return {
+      evidence: [],
+      evidence_quality: 'none',
+    }
+  }
+}
+
+function removeEvidenceCache(convId) {
+  if (!convId) return
+  localStorage.removeItem(getEvidenceStorageKey(convId))
+  localStorage.removeItem(getEvidenceHistoryStorageKey(convId))
+}
+
+function loadEvidenceHistoryCache(convId) {
+  if (!convId) return []
+
+  try {
+    const raw = localStorage.getItem(getEvidenceHistoryStorageKey(convId))
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed.entries) ? parsed.entries : []
+  } catch (error) {
+    console.error('读取参考资料历史缓存失败:', error)
+    return []
+  }
+}
+
+function attachEvidenceHistoryToMessages(convId, messageList) {
+  const historyEntries = loadEvidenceHistoryCache(convId)
+  if (!historyEntries.length) return messageList
+
+  const byAssistantIndex = new Map()
+  const byContentHash = new Map()
+  for (const entry of historyEntries) {
+    if (!Array.isArray(entry.evidence) || !entry.evidence.length) continue
+    byAssistantIndex.set(Number(entry.assistant_index), entry)
+    if (entry.content_hash) byContentHash.set(String(entry.content_hash), entry)
+  }
+
+  let assistantIndex = 0
+  return (messageList || []).map((message) => {
+    if (message?.role !== 'assistant') return message
+    assistantIndex += 1
+    const contentHash = stableTextHash(message.content || '')
+    const entry = byContentHash.get(contentHash) || byAssistantIndex.get(assistantIndex)
+    if (!entry) return message
+    return {
+      ...message,
+      evidence: entry.evidence,
+      evidence_quality: entry.evidence_quality || 'none',
+    }
+  })
+}
+
+function getLatestMessageEvidence(messageList = messages.value) {
+  for (let i = (messageList || []).length - 1; i >= 0; i -= 1) {
+    const message = messageList[i]
+    if (message?.role !== 'assistant') continue
+    const messageEvidence = getVisibleEvidenceList(message.evidence)
+    if (messageEvidence.length) {
+      return {
+        evidence: messageEvidence,
+        evidence_quality: message.evidence_quality || 'none',
+        message_index: i,
+      }
+    }
+  }
+  return {
+    evidence: [],
+    evidence_quality: 'none',
+    message_index: null,
+  }
+}
+
+const t = computed(() => ({
+  ...i18n.zh,
+  ...(i18n[language.value] || {}),
+}))
+const currentExamples = computed(() => exampleQuestions[language.value] || exampleQuestions.zh)
+const showWelcome = computed(() => messages.value.length === 0)
+const isLoggedIn = computed(() => LOGIN_ACCOUNTS.some((account) => account.username === currentUser.value))
+
+function getUITextByLang(lang, key) {
+  const langPack = i18n[lang] || i18n.zh
+  return langPack[key] || i18n.zh[key] || ''
+}
+
+function getCurrentUILang() {
+  return language.value || localStorage.getItem('language') || 'zh'
+}
+
+
+const pestClassNameById = {
+  th: {
+    0: 'พื้นหลังหรืออื่น ๆ',
+    1: 'ใบที่แข็งแรง',
+    2: 'ลำต้น/ผลที่แข็งแรง',
+    3: 'โรคใบไหม้ลำต้น',
+    4: 'ลำต้นแตกร้าว/ยางไหล',
+    5: 'โรคใบไหม้ไรโซคโทเนีย',
+    6: 'โรคแอนแทรคโนสที่ใบ',
+    7: 'โรคแคงเกอร์',
+    8: 'โรคราสีชมพู',
+    9: 'โรครากขาว',
+    10: 'โรคจุดใบสาหร่าย',
+    11: 'โรคจุดใบโฟมอปซิส',
+    12: 'โรคผลเน่า',
+    13: 'ราดำ',
+    14: 'ปลวก/มด',
+    15: 'จักจั่น',
+    16: 'เพลี้ยไก่แจ้',
+    17: 'เพลี้ยแป้ง',
+    18: 'เพลี้ยจักจั่น',
+    19: 'เพลี้ยไฟ',
+    20: 'ไรแดง',
+    21: 'เพลี้ยหอย',
+    22: 'หนอนเจาะลำต้น',
+    23: 'ด้วงเปลือกไม้',
+    24: 'หนอนเจาะผล',
+    25: 'ใบเหลือง',
+  },
+}
+
+function getPestDisplayName(classifyData, lang) {
+  if (!classifyData) return getUITextByLang(lang, 'unknownClassification')
+
+  const directName = {
+    zh: classifyData.class_name,
+    en: classifyData.class_name_en,
+    ms: classifyData.class_name_ms,
+    th: classifyData.class_name_th,
+  }[lang]
+
+  if (directName) return directName
+
+  const classId = Number(classifyData.class_id)
+  const mappedName = pestClassNameById[lang]?.[classId]
+  return mappedName || classifyData.class_name_en || classifyData.class_name || getUITextByLang(lang, 'unknownClassification')
+}
+
+function formatConfidence(confidence) {
+  const value = Number(confidence)
+  if (!Number.isFinite(value)) return ''
+  return `${(value * 100).toFixed(1)}%`
+}
+
+function getRuntimeText(lang, key) {
+  const mapping = {
+    zh: {
+      chatPreparing: '正在连接模型，请稍候...',
+      chatGenerating: '模型正在生成回答，请稍候...',
+      imageClassified: '分类完成，正在生成详细建议...',
+      imageGeneratingWithClass: '正在生成详细建议，请稍候...',
+    },
+    en: {
+      chatPreparing: 'Connecting to the model, please wait...',
+      chatGenerating: 'The model is generating the answer, please wait...',
+      imageClassified: 'Classification completed. Generating detailed recommendations...',
+      imageGeneratingWithClass: 'Generating detailed recommendations, please wait...',
+    },
+    ms: {
+      chatPreparing: 'Sedang menyambung kepada model, sila tunggu...',
+      chatGenerating: 'Model sedang menjana jawapan, sila tunggu...',
+      imageClassified: 'Klasifikasi selesai. Sedang menjana cadangan terperinci...',
+      imageGeneratingWithClass: 'Sedang menjana cadangan terperinci, sila tunggu...',
+    },
+    th: {
+      chatPreparing: 'กำลังเชื่อมต่อกับโมเดล โปรดรอสักครู่...',
+      chatGenerating: 'โมเดลกำลังสร้างคำตอบ โปรดรอสักครู่...',
+      imageClassified: 'จำแนกเสร็จแล้ว กำลังสร้างคำแนะนำโดยละเอียด...',
+      imageGeneratingWithClass: 'กำลังสร้างคำแนะนำโดยละเอียด โปรดรอสักครู่...',
+    },
+  }
+  return mapping[lang]?.[key] || mapping.zh[key] || ''
+}
+
+function buildImageProgressText(lang, classifyData, elapsedMs = 0) {
+  const className = getPestDisplayName(classifyData, lang)
+  const confidence = formatConfidence(classifyData?.confidence)
+  const elapsedSeconds = Math.floor(elapsedMs / 1000)
+  const elapsedText = elapsedSeconds > 0 ? ` ${elapsedSeconds}s` : ''
+
+  if (lang === 'en') {
+    return `${getRuntimeText(lang, 'imageGeneratingWithClass')}\n\nCategory: ${className}${confidence ? ` (${confidence})` : ''}${elapsedText}`
+  }
+  if (lang === 'ms') {
+    return `${getRuntimeText(lang, 'imageGeneratingWithClass')}\n\nKategori: ${className}${confidence ? ` (${confidence})` : ''}${elapsedText}`
+  }
+  if (lang === 'th') {
+    return `${getRuntimeText(lang, 'imageGeneratingWithClass')}\n\nประเภท: ${className}${confidence ? ` (${confidence})` : ''}${elapsedText}`
+  }
+  return `${getRuntimeText(lang, 'imageGeneratingWithClass')}\n\n分类结果：${className}${confidence ? `（${confidence}）` : ''}${elapsedText}`
+}
+
+watch(language, (value) => {
+  localStorage.setItem('language', value)
+  document.documentElement.lang = value
+  const activeIndex = activeEvidenceMessageIndex.value
+  const activeMessage = Number.isInteger(activeIndex) ? messages.value[activeIndex] : null
+  if (activeMessage?.role === 'assistant') {
+    updateEvidencePanelFromMessage(activeMessage, activeIndex, { expandSidebar: false })
+  } else {
+    const latest = getLatestMessageEvidence(messages.value)
+    evidence.value = latest.evidence
+    evidenceQuality.value = latest.evidence_quality
+    activeEvidenceMessageIndex.value = latest.message_index
+  }
+})
+
+watch(streamMode, () => {
+  localStorage.setItem('streamMode', 'true')
+})
+
+watch(maxTokens, (value) => {
+  const normalized = Number(value) || DEFAULT_CHAT_MAX_TOKENS
+  localStorage.setItem('maxTokens', String(normalized))
+})
+
+watch(totalTokens, (value) => {
+  if (!currentUser.value) return
+  localStorage.setItem(getUserStorageKey('totalTokens'), String(value))
+})
+
+watch(currentConversationId, (value) => {
+  if (!currentUser.value) return
+
+  if (value) {
+    localStorage.setItem(getUserStorageKey('currentConversationId'), value)
+  } else {
+    localStorage.removeItem(getUserStorageKey('currentConversationId'))
+  }
+})
+
+
+function renderStructuredAnswer(text) {
+  return renderMarkdown(text)
+}
+
+function containsHallucination(text) {
+  const normalized = text || ''
+  return (
+    (normalized.includes('据研究表明') && !normalized.includes('来源')) ||
+    normalized.includes('一般来说') ||
+    normalized.length < 20
+  )
+}
+
+function qualityBadgeText(quality) {
+  const mapping = {
+    zh: {
+      high: '🟢 高可信',
+      medium: '🟡 中等可信',
+      low: '🔴 低可信',
+      none: '⚪ 无相关',
+    },
+    en: {
+      high: '🟢 Highly Trustworthy',
+      medium: '🟡 Moderately Trustworthy',
+      low: '🔴 Low Trustworthy',
+      none: '⚪ No Relevance',
+    },
+    ms: {
+      high: '🟢 Sangat Boleh Dipercayai',
+      medium: '🟡 Sederhana Boleh Dipercayai',
+      low: '🔴 Kurang Boleh Dipercayai',
+      none: '⚪ Tiada Kaitan',
+    },
+    th: {
+      high: '🟢 น่าเชื่อถือมาก',
+      medium: '🟡 น่าเชื่อถือปานกลาง',
+      low: '🔴 น่าเชื่อถือน้อย',
+      none: '⚪ ไม่เกี่ยวข้อง',
+    },
+  }
+  const langMapping = mapping[language.value] || mapping.zh
+  return langMapping[quality] || langMapping.none
+}
+
+function getEvidencePreview(text, index) {
+  if (!text) return ''
+  if (evidenceExpanded.value[index] || text.length <= 700) return text
+  return `${text.slice(0, 700)}...`
+}
+
+function toggleEvidence(index) {
+  evidenceExpanded.value = {
+    ...evidenceExpanded.value,
+    [index]: !evidenceExpanded.value[index],
+  }
+}
+
+function getQualityLabel(quality) {
+  return qualityBadgeText(quality)
+}
+
+function detectEvidenceLanguageFromText(text) {
+  const value = String(text || '')
+  if (!value) return 'unknown'
+  if (/[\u0E00-\u0E7F]/.test(value)) return 'th'
+  if (/[\u4E00-\u9FFF]/.test(value)) return 'zh'
+
+  const latinLetters = (value.match(/[A-Za-z]/g) || []).length
+  const wordSeparators = (value.match(/[\s.,;:!?()[\]{}-]/g) || []).length
+  if (latinLetters >= 24 && wordSeparators >= 4) return 'en'
+
+  return 'unknown'
+}
+
+function isEvidenceLanguageVisible(item) {
+  return Boolean(
+    item &&
+    (
+      item.translated_text ||
+      item.display_text ||
+      item.text ||
+      item.original_text ||
+      item.translation_pending
+    )
+  )
+}
+
+function getEvidenceText(item) {
+  if (!item || !isEvidenceLanguageVisible(item)) return ''
+  if (item?.translated_text || item?.display_text) {
+    return item?.translated_text || item?.display_text || ''
+  }
+  if (item?.translation_pending) {
+    return getEvidencePendingText(item)
+  }
+  return item?.translated_text || item?.display_text || item?.text || item?.original_text || ''
+}
+
+function isBadEvidenceForPanel(item) {
+  const text = String(
+    item?.display_text ||
+    item?.text ||
+    item?.index_text ||
+    item?.original_text ||
+    item?.evidence ||
+    ''
+  ).replace(/\s+/g, ' ').trim()
+
+  if (!text) return true
+
+  const lower = text.toLowerCase()
+
+  // MinerU / OCR parser garbage
+  const parserMarkers = [
+    "'bbox'", '"bbox"', 'bbox:',
+    "'spans'", '"spans"',
+    "'lines'", '"lines"',
+    "'para_blocks'", '"para_blocks"',
+    "'discarded_blocks'", '"discarded_blocks"',
+    "'page_idx'", '"page_idx"',
+    "'image_path'", '"image_path"',
+    "'content'", '"content"'
+  ]
+
+  let markerHits = 0
+  for (const marker of parserMarkers) {
+    if (lower.includes(marker)) markerHits += 1
+  }
+  if (markerHits >= 2) return true
+
+  // Book preface / author responsibility / front matter
+  const frontMatterMarkers = [
+    '本书由',
+    '主编',
+    '副研究员',
+    '助理研究员',
+    '负责图书框架',
+    '主要负责',
+    '负责榴莲',
+    '资料整理',
+    '撰写',
+    '书中系统介绍',
+    '责任编辑',
+    '出版'
+  ]
+
+  if (frontMatterMarkers.some(marker => text.includes(marker))) return true
+
+  return false
+}
+
+function getVisibleEvidenceList(evidenceList = [], quality = null) {
+  const q = quality ?? evidenceQuality.value ?? 'none'
+
+  if (q === 'none' || q === 'irrelevant') {
+    return []
+  }
+
+  return Array.isArray(evidenceList)
+    ? evidenceList.filter((item) => item && getEvidenceText(item) && !isBadEvidenceForPanel(item))
+    : []
+}
+
+function updateEvidencePanelFromMessage(message, messageIndex, options = {}) {
+  const selectedEvidence = getVisibleEvidenceList(message?.evidence)
+
+  // A follow-up can legitimately skip RAG and still rely on the previous turn.
+  // Keep the most recent useful references visible instead of flashing/clearing
+  // the panel while a new answer streams or when that answer has no new evidence.
+  if (!selectedEvidence.length && options.preserveWhenEmpty !== false) {
+    return false
+  }
+
+  evidence.value = selectedEvidence
+  evidenceQuality.value = message.evidence_quality || 'none'
+  evidenceExpanded.value = {}
+  activeEvidenceMessageIndex.value = selectedEvidence.length ? messageIndex : null
+
+  if (selectedEvidence.length && options.expandSidebar) {
+    rightSidebarCollapsed.value = false
+  }
+
+  return true
+}
+
+function selectMessageEvidence(message, messageIndex) {
+  updateEvidencePanelFromMessage(message, messageIndex, { expandSidebar: true })
+}
+
+function toggleRightSidebar() {
+  rightSidebarCollapsed.value = !rightSidebarCollapsed.value
+}
+
+function getEvidenceSource(item) {
+  return item?.doc || item?.source || t.value.unknownSource
+}
+
+function getEvidenceScore(item) {
+  return formatEvidenceScore(item)
+}
+
+function getEvidencePendingText(item) {
+  const targetLanguage = item?.target_language || language.value || 'zh'
+  const pendingText = {
+    zh: '参考资料正在翻译，原文已保留。',
+    en: 'Reference translation is pending. The original excerpt is preserved.',
+    ms: 'Terjemahan rujukan sedang disediakan. Petikan asal telah disimpan.',
+    th: 'กำลังแปลเอกสารอ้างอิง และเก็บข้อความต้นฉบับไว้แล้ว',
+  }
+  return pendingText[targetLanguage] || pendingText.zh
+}
+
+function getInlineEvidencePreview(text, limit = 180) {
+  const normalized = (text || '').replace(/\s+/g, ' ').trim()
+  if (!normalized) return ''
+  return normalized.length > limit ? `${normalized.slice(0, limit)}...` : normalized
+}
+
+function getMessageEvidence(message) {
+  return getVisibleEvidenceList(message?.evidence).slice(0, 3)
+}
+
+function getInlineMessageEvidence(message, messageIndex) {
+  const list = getVisibleEvidenceList(message?.evidence)
+  return activeEvidenceMessageIndex.value === messageIndex ? list : list.slice(0, 3)
+}
+
+function getMessageEvidenceCount(message) {
+  return getVisibleEvidenceList(message?.evidence).length
+}
+
+function filterResponse(text) {
+  if (!text) return ''
+  let result = text
+  result = result.replace(/<!--\s*\[RAG evidence encoded\][\s\S]*?-->/gi, '')
+  
+  // 移除旧版本可能混入 content 的隐藏上下文卡片。v4 起上下文卡片走 active_context_card 字段，不应显示在正文。
+  result = result.replace(/<!--\s*\[(?:Image context|Durian context card|视觉识别上下文)\][\s\S]*?(?:-->|$)/gi, '')
+  result = result.replace(/\[Durian context card\][\s\S]*$/gi, '')
+  result = result.replace(/[\r\n]*["“]?created_at["”]?\s*[:：]\s*["“][^\n{}]+["”]\s*}\s*(?:-->)?\s*$/gi, '')
+
+  // 移除完整闭合的思考标签
+  result = result.replace(/<think>[\s\S]*?<\/think>/gi, '')
+  result = result.replace(/<analysis>[\s\S]*?<\/analysis>/gi, '')
+  result = result.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '')
+
+  // 移除未闭合的标签本身，但不删除后续内容
+  result = result.replace(/<\/?think>/gi, '')
+  result = result.replace(/<\/?analysis>/gi, '')
+  result = result.replace(/<\/?reasoning>/gi, '')
+
+  result = result.replace(/^[\s]*(?:思考|思维|分析|推理)[:：][\s\S]*?(?=\n\n|$)/gm, '')
+  result = result.replace(/^[\s]*(?:让我|我来|首先)(?:思考|分析|推理).*?[\n：]/gm, '')
+  result = result.replace(/\n?\{"evidence"[\s\S]*$/i, '')
+  result = result.replace(/\b\d{14}\.json\b/gi, '')
+  result = result.replace(/^[ \t]*[\w-]+(?:\.[\w-]+)*\.json[ \t]*$/gim, '')
+  result = result.replace(/[ \t]+\n/g, '\n')
+  result = result.replace(/\n\n\n+/g, '\n\n')
+  // 移除 Classification 行
+  result = result.replace(/^[\s]*Classification[\s]*:[\s]*[^\n]*[\n]*/gm, '')
+  result = result.replace(/^[\s]*分类[\s]*:[\s]*[^\n]*[\n]*/gm, '')
+  result = result.replace(/^[\s]*Klasifikasi[\s]*:[\s]*[^\n]*[\n]*/gm, '')
+  result = result.replace(/^[\s]*การจำแนก[\s]*:[\s]*[^\n]*[\n]*/gm, '')
+  
+  // 保留 <br> 标签用于换行
+  result = result.replace(/<br\s*\/?>/gi, '<br>')
+  
+  return result.trim()
+}
+
+function extractStreamPayload(text) {
+  if (!text) {
+    return {
+      content: '',
+      evidence: [],
+      quality: 'none',
+    }
+  }
+
+  const markerIndex = text.lastIndexOf('{"evidence"')
+  if (markerIndex === -1) {
+    return {
+      content: filterResponse(text),
+      evidence: [],
+      quality: 'none',
+    }
+  }
+
+  const contentPart = text.slice(0, markerIndex)
+  const jsonPart = text.slice(markerIndex).trim()
+
+  try {
+    const parsed = JSON.parse(jsonPart)
+    return {
+      content: filterResponse(contentPart),
+      evidence: parsed.evidence || [],
+      quality: parsed.evidence_quality || 'none',
+    }
+  } catch {
+    return {
+      content: filterResponse(text),
+      evidence: [],
+      quality: 'none',
+    }
+  }
+}
+
+function splitSSEEvents(buffer) {
+  const normalized = buffer.replace(/\r\n/g, '\n')
+  const parts = normalized.split('\n\n')
+  const rest = parts.pop() || ''
+  return { events: parts, rest }
+}
+
+function getSSEData(rawEvent) {
+  if (!rawEvent) return ''
+  const trimmed = rawEvent.trim()
+  if (trimmed.startsWith('data:')) {
+    return trimmed.replace(/^data:\s*/, '')
+  }
+  return trimmed
+}
+
+function getActiveTableScroller() {
+  if (typeof window === 'undefined') return null
+  const scrollers = Array.from(document.querySelectorAll('.markdown-table-scroll'))
+  const viewportTop = 0
+  const viewportBottom = window.innerHeight - 120
+  const viewportCenter = Math.max(0, Math.min(window.innerHeight, viewportBottom)) / 2
+
+  let best = null
+  let bestScore = -Infinity
+
+  for (const scroller of scrollers) {
+    const maxScroll = Math.max(0, scroller.scrollWidth - scroller.clientWidth)
+    if (maxScroll <= 2) continue
+
+    const rect = scroller.getBoundingClientRect()
+    if (rect.bottom < viewportTop || rect.top > viewportBottom) continue
+
+    const visibleHeight = Math.min(rect.bottom, viewportBottom) - Math.max(rect.top, viewportTop)
+    const distancePenalty = Math.abs((rect.top + rect.bottom) / 2 - viewportCenter)
+    const score = visibleHeight * 10 - distancePenalty
+    if (score > bestScore) {
+      bestScore = score
+      best = scroller
+    }
+  }
+
+  return best
+}
+
+function updateMobileTableControlsVisibility() {
+  if (typeof window === 'undefined') return
+  const isMobile = window.matchMedia('(max-width: 768px)').matches
+  showMobileTableControls.value = isMobile && Boolean(getActiveTableScroller())
+}
+
+function scrollActiveMobileTable(direction) {
+  const scroller = getActiveTableScroller()
+  if (!scroller) {
+    updateMobileTableControlsVisibility()
+    return
+  }
+
+  const maxScroll = Math.max(0, scroller.scrollWidth - scroller.clientWidth)
+  const step = Math.max(240, Math.floor(scroller.clientWidth * 0.86))
+  const nextLeft = Math.max(0, Math.min(maxScroll, scroller.scrollLeft + direction * step))
+  scroller.scrollTo({ left: nextLeft, behavior: 'smooth' })
+
+  const wrap = scroller.closest('.markdown-table-wrap')
+  window.setTimeout(() => {
+    if (wrap) updateOneTableScrollControl(wrap)
+    updateMobileTableControlsVisibility()
+  }, 100)
+  window.setTimeout(() => {
+    if (wrap) updateOneTableScrollControl(wrap)
+    updateMobileTableControlsVisibility()
+  }, 300)
+}
+
+let lastTableButtonEventAt = 0
+const tableButtonEventOptions = { capture: true, passive: false }
+
+function handleMarkdownTableButtonEvent(event) {
+  const target = event.target?.closest?.('.markdown-table-mobile-btn, .table-scroll-arrow')
+  if (!target) return
+
+  const now = Date.now()
+  if (now - lastTableButtonEventAt < 450) {
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+  lastTableButtonEventAt = now
+
+  const wrap = target.closest('.markdown-table-wrap')
+  const scroller = wrap?.querySelector?.('[data-table-scroll], .markdown-table-scroll')
+  if (!scroller) return
+
+  const buttons = Array.from(target.parentElement?.querySelectorAll?.('.markdown-table-mobile-btn, .table-scroll-arrow') || [])
+  const isLeft = target.matches('[data-table-left], [data-table-mobile-left]') || buttons.indexOf(target) === 0
+  const direction = isLeft ? -1 : 1
+  const step = Math.max(220, Math.floor(scroller.clientWidth * 0.82))
+  const maxScroll = Math.max(0, scroller.scrollWidth - scroller.clientWidth)
+  const nextLeft = Math.max(0, Math.min(maxScroll, scroller.scrollLeft + direction * step))
+
+  event.preventDefault()
+  event.stopPropagation()
+  scroller.scrollTo({ left: nextLeft, behavior: 'smooth' })
+  window.setTimeout(() => updateOneTableScrollControl(wrap), 80)
+  window.setTimeout(() => updateOneTableScrollControl(wrap), 260)
+}
+
+
+function ensureMarkdownTableButtons(root = null) {
+  const scope = root || chatMessagesRef.value || document
+  const scrollers = scope?.querySelectorAll?.('.markdown-table-scroll') || []
+
+  scrollers.forEach((scroller) => {
+    if (scroller.dataset.buttonScrollReady === '1') return
+    scroller.dataset.buttonScrollReady = '1'
+
+    const wrap = scroller.closest('.markdown-table-wrap') || scroller.parentElement
+    if (!wrap) return
+
+    const controls = document.createElement('div')
+    controls.className = 'markdown-table-mobile-controls'
+    controls.setAttribute('aria-hidden', 'false')
+
+    const leftBtn = document.createElement('button')
+    leftBtn.type = 'button'
+    leftBtn.className = 'markdown-table-mobile-btn'
+    leftBtn.dataset.tableMobileLeft = '1'
+    leftBtn.innerHTML = '‹'
+    leftBtn.setAttribute('aria-label', '向左滚动表格')
+
+    const rightBtn = document.createElement('button')
+    rightBtn.type = 'button'
+    rightBtn.className = 'markdown-table-mobile-btn'
+    rightBtn.dataset.tableMobileRight = '1'
+    rightBtn.innerHTML = '›'
+    rightBtn.setAttribute('aria-label', '向右滚动表格')
+
+    controls.appendChild(leftBtn)
+    controls.appendChild(rightBtn)
+
+    wrap.insertBefore(controls, scroller)
+  })
+}
+
+function syncMarkdownTableSliders(root = null) {
+  ensureMarkdownTableButtons(root)
+  const scope = root || chatMessagesRef.value || document
+  const wrappers = scope?.querySelectorAll?.('.markdown-table-wrap') || []
+
+  wrappers.forEach((wrap) => {
+    const scroller = wrap.querySelector('[data-table-scroll]')
+    const dragbar = wrap.querySelector('[data-table-dragbar]')
+    const thumb = wrap.querySelector('[data-table-dragthumb]')
+    const leftButton = wrap.querySelector('[data-table-left]')
+    const rightButton = wrap.querySelector('[data-table-right]')
+
+    if (!scroller || !dragbar || !thumb) return
+
+    if (dragbar.dataset.bound === '1') {
+      updateOneTableScrollControl(wrap)
+      return
+    }
+
+    let dragging = false
+    let ticking = false
+    let startX = 0
+    let startScrollLeft = 0
+
+    const getMaxScroll = () => {
+      const table = scroller.querySelector('table')
+      const tableWidth = table ? Math.ceil(table.getBoundingClientRect().width) : 0
+      const contentWidth = Math.max(scroller.scrollWidth, tableWidth)
+      return Math.max(0, Math.ceil(contentWidth - scroller.clientWidth))
+    }
+
+    const update = () => {
+      const maxScroll = getMaxScroll()
+      const scrollLeft = Math.max(0, Math.min(scroller.scrollLeft, maxScroll))
+      const ratio = maxScroll > 2 ? scrollLeft / maxScroll : 0
+
+      const barWidth = Math.max(1, dragbar.clientWidth)
+      const visibleRatio = scroller.scrollWidth > 0 ? Math.min(1, scroller.clientWidth / scroller.scrollWidth) : 1
+      const thumbWidth = Math.max(36, Math.floor(barWidth * visibleRatio))
+      const maxThumbLeft = Math.max(0, barWidth - thumbWidth)
+
+      thumb.style.width = `${thumbWidth}px`
+      thumb.style.transform = `translateX(${Math.round(maxThumbLeft * ratio)}px)`
+
+      if (leftButton) leftButton.disabled = maxScroll <= 2 || scrollLeft <= 2
+      if (rightButton) rightButton.disabled = maxScroll <= 2 || scrollLeft >= maxScroll - 2
+
+      wrap.classList.toggle('is-scrollable', maxScroll > 2)
+      wrap.classList.toggle('at-start', scrollLeft <= 2)
+      wrap.classList.toggle('at-end', scrollLeft >= maxScroll - 2)
+      dragbar.classList.toggle('is-disabled', maxScroll <= 2)
+    }
+
+    const requestUpdate = () => {
+      if (ticking) return
+      ticking = true
+      window.requestAnimationFrame(() => {
+        ticking = false
+        update()
+      })
+    }
+
+    const setScrollFromBarX = (clientX) => {
+      const maxScroll = getMaxScroll()
+      if (maxScroll <= 2) return
+
+      const rect = dragbar.getBoundingClientRect()
+      const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / Math.max(1, rect.width)))
+      scroller.scrollLeft = Math.round(ratio * maxScroll)
+      requestUpdate()
+    }
+
+    const scrollByStep = (direction) => {
+      const maxScroll = getMaxScroll()
+      const step = Math.max(160, Math.floor(scroller.clientWidth * 0.75))
+      const next = Math.max(0, Math.min(maxScroll, scroller.scrollLeft + direction * step))
+      scroller.scrollTo({ left: next, behavior: 'smooth' })
+      window.setTimeout(requestUpdate, 80)
+      window.setTimeout(requestUpdate, 240)
+    }
+
+    // 表格本体也允许横向拖动，不只依赖下面的条
+    let tableDragging = false
+    let tableStartX = 0
+    let tableStartLeft = 0
+
+    scroller.addEventListener('touchstart', (event) => {
+      if (!event.touches?.[0]) return
+      tableDragging = true
+      tableStartX = event.touches[0].clientX
+      tableStartLeft = scroller.scrollLeft
+    }, { passive: true })
+
+    scroller.addEventListener('touchmove', (event) => {
+      if (!tableDragging || !event.touches?.[0]) return
+      const dx = event.touches[0].clientX - tableStartX
+      if (Math.abs(dx) > 4) {
+        scroller.scrollLeft = tableStartLeft - dx
+        requestUpdate()
+      }
+    }, { passive: true })
+
+    scroller.addEventListener('touchend', () => {
+      tableDragging = false
+    }, { passive: true })
+
+    scroller.addEventListener('scroll', requestUpdate, { passive: true })
+
+    // 自定义拖动条：pointer 事件
+    dragbar.addEventListener('pointerdown', (event) => {
+      const maxScroll = getMaxScroll()
+      if (maxScroll <= 2) return
+      dragging = true
+      startX = event.clientX
+      startScrollLeft = scroller.scrollLeft
+      event.preventDefault()
+      event.stopPropagation()
+      dragbar.setPointerCapture?.(event.pointerId)
+      setScrollFromBarX(event.clientX)
+    })
+
+    dragbar.addEventListener('pointermove', (event) => {
+      if (!dragging) return
+      event.preventDefault()
+      event.stopPropagation()
+      const maxScroll = getMaxScroll()
+      const rect = dragbar.getBoundingClientRect()
+      const dx = event.clientX - startX
+      const ratioDelta = dx / Math.max(1, rect.width)
+      scroller.scrollLeft = Math.max(0, Math.min(maxScroll, startScrollLeft + ratioDelta * maxScroll))
+      requestUpdate()
+    })
+
+    const stopPointer = (event) => {
+      if (!dragging) return
+      dragging = false
+      event?.stopPropagation?.()
+      try {
+        if (event?.pointerId != null) dragbar.releasePointerCapture?.(event.pointerId)
+      } catch {}
+    }
+
+    dragbar.addEventListener('pointerup', stopPointer)
+    dragbar.addEventListener('pointercancel', stopPointer)
+    dragbar.addEventListener('lostpointercapture', stopPointer)
+
+    // 自定义拖动条：touch 兜底
+    dragbar.addEventListener('touchstart', (event) => {
+      const maxScroll = getMaxScroll()
+      if (maxScroll <= 2 || !event.touches?.[0]) return
+      dragging = true
+      startX = event.touches[0].clientX
+      startScrollLeft = scroller.scrollLeft
+      event.preventDefault()
+      event.stopPropagation()
+      setScrollFromBarX(startX)
+    }, { passive: false })
+
+    dragbar.addEventListener('touchmove', (event) => {
+      if (!dragging || !event.touches?.[0]) return
+      event.preventDefault()
+      event.stopPropagation()
+      const maxScroll = getMaxScroll()
+      const rect = dragbar.getBoundingClientRect()
+      const dx = event.touches[0].clientX - startX
+      const ratioDelta = dx / Math.max(1, rect.width)
+      scroller.scrollLeft = Math.max(0, Math.min(maxScroll, startScrollLeft + ratioDelta * maxScroll))
+      requestUpdate()
+    }, { passive: false })
+
+    dragbar.addEventListener('touchend', () => {
+      dragging = false
+    }, { passive: true })
+
+    dragbar.addEventListener('touchcancel', () => {
+      dragging = false
+    }, { passive: true })
+
+    leftButton?.addEventListener('click', (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      scrollByStep(-1)
+    })
+
+    rightButton?.addEventListener('click', (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      scrollByStep(1)
+    })
+
+    leftButton?.addEventListener('touchstart', (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      scrollByStep(-1)
+    }, { passive: false })
+
+    rightButton?.addEventListener('touchstart', (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      scrollByStep(1)
+    }, { passive: false })
+
+    dragbar.dataset.bound = '1'
+    update()
+    window.setTimeout(update, 80)
+    window.setTimeout(update, 320)
+    window.setTimeout(update, 900)
+  })
+  updateMobileTableControlsVisibility()
+}
+
+function updateOneTableScrollControl(wrap) {
+  const scroller = wrap.querySelector('[data-table-scroll]')
+  const dragbar = wrap.querySelector('[data-table-dragbar]')
+  const thumb = wrap.querySelector('[data-table-dragthumb]')
+  const leftButton = wrap.querySelector('[data-table-left]')
+  const rightButton = wrap.querySelector('[data-table-right]')
+  if (!scroller || !dragbar || !thumb) return
+
+  const table = scroller.querySelector('table')
+  const tableWidth = table ? Math.ceil(table.getBoundingClientRect().width) : 0
+  const contentWidth = Math.max(scroller.scrollWidth, tableWidth)
+  const maxScroll = Math.max(0, Math.ceil(contentWidth - scroller.clientWidth))
+  const scrollLeft = Math.max(0, Math.min(scroller.scrollLeft, maxScroll))
+  const ratio = maxScroll > 2 ? scrollLeft / maxScroll : 0
+
+  const barWidth = Math.max(1, dragbar.clientWidth)
+  const visibleRatio = scroller.scrollWidth > 0 ? Math.min(1, scroller.clientWidth / scroller.scrollWidth) : 1
+  const thumbWidth = Math.max(36, Math.floor(barWidth * visibleRatio))
+  const maxThumbLeft = Math.max(0, barWidth - thumbWidth)
+
+  thumb.style.width = `${thumbWidth}px`
+  thumb.style.transform = `translateX(${Math.round(maxThumbLeft * ratio)}px)`
+
+  if (leftButton) leftButton.disabled = maxScroll <= 2 || scrollLeft <= 2
+  if (rightButton) rightButton.disabled = maxScroll <= 2 || scrollLeft >= maxScroll - 2
+
+  wrap.classList.toggle('is-scrollable', maxScroll > 2)
+  dragbar.classList.toggle('is-disabled', maxScroll <= 2)
+}
+
+let pendingMessageRender = 0
+function scheduleMessagesRender(forceScroll = false) {
+  if (pendingMessageRender) return
+  pendingMessageRender = window.requestAnimationFrame(async () => {
+    pendingMessageRender = 0
+    messages.value = [...messages.value]
+    await nextTick()
+    syncMarkdownTableSliders()
+    await scrollToBottom(forceScroll)
+  })
+}
+
+function isUserNearBottom() {
+  if (window.matchMedia('(max-width: 900px)').matches) {
+    const page = document.scrollingElement || document.documentElement
+    return page.scrollHeight - page.scrollTop - window.innerHeight < 120
+  }
+
+  const el = chatMessagesRef.value
+  if (!el) return true
+  const diff = el.scrollHeight - el.scrollTop - el.clientHeight
+  return diff < 100
+}
+
+async function scrollToBottom(force = false) {
+  await nextTick()
+  syncMarkdownTableSliders()
+  if (window.matchMedia('(max-width: 900px)').matches) {
+    const page = document.scrollingElement || document.documentElement
+    if (force || isUserNearBottom()) {
+      window.scrollTo({ top: page.scrollHeight, behavior: 'auto' })
+    }
+    return
+  }
+
+  const el = chatMessagesRef.value
+  if (!el) return
+  if (force || isUserNearBottom()) {
+    el.scrollTop = el.scrollHeight
+  }
+}
+
+function resizeComposerInput(event) {
+  const input = event?.target || composerInputRef.value
+  if (!input) return
+  input.style.height = 'auto'
+  input.style.height = `${Math.min(Math.max(input.scrollHeight, 48), 140)}px`
+}
+
+function handleComposerFocus() {
+  window.setTimeout(() => {
+    scrollToBottom(true)
+  }, 250)
+}
+
+function pushToast(message, type = 'info') {
+  const id = ++toastCounter
+  toasts.value.push({ id, message, type })
+  setTimeout(() => {
+    toasts.value = toasts.value.filter((item) => item.id !== id)
+  }, 3000)
+}
+
+function detectInputLanguage(text) {
+  const value = (text || '').trim()
+  if (!value) return language.value
+
+  if (/[\u0E00-\u0E7F]/.test(value)) return 'th'
+  if (/[\u4E00-\u9FFF]/.test(value)) return 'zh'
+
+  const lower = value.toLowerCase()
+
+  const enKeywords = [
+    'what', 'why', 'how', 'should', 'could', 'would',
+    'do', 'does', 'is', 'are', 'if', 'tree', 'trunk',
+    'leaf', 'leaves', 'soil', 'root', 'fruit', 'disease',
+    'pest', 'drainage', 'gum', 'exudation'
+  ]
+
+  const enHitCount = enKeywords.filter((word) => {
+    return new RegExp(`\\b${word}\\b`, 'i').test(lower)
+  }).length
+
+  if (enHitCount >= 2) return 'en'
+
+  const msKeywords = [
+    'apakah', 'mengapa', 'bagaimana', 'kenapa', 'punca',
+    'tanah', 'daun', 'batang', 'akar', 'buah',
+    'saliran', 'penanaman', 'pokok', 'penyakit', 'perosak',
+    'mengeluarkan', 'getah', 'semasa', 'musim', 'hujan',
+    'sesuai', 'perlu', 'dilakukan', 'menjadi', 'kuning'
+  ]
+
+  const msHitCount = msKeywords.filter((word) => {
+    return new RegExp(`\\b${word}\\b`, 'i').test(lower)
+  }).length
+
+  if (msHitCount >= 2) return 'ms'
+
+  if (/[a-z]/i.test(value)) return 'en'
+
+  return language.value
+}
+
+function removeThink(text) {
+  return normalizeModelOutput(text)
+}
+
+function blobToDataURL(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+}
+
+async function pollAnalyzeJob(jobId, maxWaitMs = IMAGE_ANALYSIS_MAX_WAIT_MS, onProgress = null) {
+  const start = Date.now()
+
+  while (Date.now() - start < maxWaitMs) {
+    const response = await fetch(`${API_BASE_URL}${endpoints.analyzePestJob}/${jobId}`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    })
+
+    if (!response.ok) {
+      const text = await response.text()
+      throw new Error(`查询图片分析任务失败: HTTP ${response.status} ${text}`)
+    }
+
+    const job = await response.json()
+    if (typeof onProgress === 'function') {
+      onProgress(job, Date.now() - start)
+    }
+
+    if (job.status === 'done') {
+      return job.result
+    }
+
+    if (job.status === 'error') {
+      throw new Error(job.error || '图片分析任务失败')
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1200))
+  }
+
+  throw new Error(t.value.imageAnalysisTimeout)
+}
+
+function postFormDataWithXHR(url, formData, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+
+    xhr.open('POST', url, true)
+    xhr.responseType = 'text'
+    xhr.timeout = 300000
+
+    Object.entries(headers || {}).forEach(([key, value]) => {
+      xhr.setRequestHeader(key, value)
+    })
+
+    xhr.onload = () => {
+      const rawText = xhr.responseText || ''
+
+      console.log('XHR analyze_pest status:', xhr.status)
+      console.log('XHR analyze_pest raw response:', rawText)
+
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(new Error(`分析请求失败: HTTP ${xhr.status} ${rawText}`))
+        return
+      }
+
+      try {
+        const data = JSON.parse(rawText)
+        resolve(data)
+      } catch (parseError) {
+        console.error('XHR JSON 解析失败:', parseError)
+        console.error('XHR 原始响应:', rawText)
+        reject(new Error('分析接口返回的不是合法 JSON'))
+      }
+    }
+
+    xhr.onerror = () => {
+      console.error('XHR analyze_pest 网络错误:', {
+        status: xhr.status,
+        readyState: xhr.readyState,
+        responseText: xhr.responseText,
+      })
+      reject(new Error('图片分析请求网络错误'))
+    }
+
+    xhr.ontimeout = () => {
+      console.error('XHR analyze_pest 请求超时')
+      reject(new Error('图片分析请求超时'))
+    }
+
+    xhr.onabort = () => {
+      console.error('XHR analyze_pest 请求被取消')
+      reject(new Error('图片分析请求被取消'))
+    }
+
+    xhr.send(formData)
+  })
+}
+
+
+function onImageSelected(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  pestImageFile.value = file
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    originalImagePreview.value = e.target?.result
+    showCropperModal.value = true
+    // 延迟初始化 Cropper，确保 DOM 已挂载
+    nextTick(() => {
+      initCropper()
+    })
+  }
+  reader.readAsDataURL(file)
+  event.target.value = ''
+}
+
+function initCropper() {
+  const imageElement = document.getElementById('cropper-image')
+  if (!imageElement || cropperInstance.value) return
+
+  cropperInstance.value = new Cropper(imageElement, {
+    aspectRatio: NaN,
+    viewMode: 1,
+    autoCropArea: 1,
+    responsive: true,
+    restore: true,
+    checkOrientation: true,
+    guides: true,
+    center: true,
+    highlight: true,
+    cropBoxMovable: true,
+    cropBoxResizable: true,
+    toggleDragModeOnDblclick: true,
+  })
+}
+
+function closeCropperModal(options = {}) {
+  const keepSelectedImage = Boolean(options.keepSelectedImage)
+  showCropperModal.value = false
+  if (cropperInstance.value) {
+    cropperInstance.value.destroy()
+    cropperInstance.value = null
+  }
+  originalImagePreview.value = null
+  if (!keepSelectedImage) {
+    pestImageFile.value = null
+    pestImagePreview.value = null
+  }
+}
+
+function clearPendingImage() {
+  pestImageFile.value = null
+  pestImagePreview.value = null
+  originalImagePreview.value = null
+  if (cropperInstance.value) {
+    cropperInstance.value.destroy()
+    cropperInstance.value = null
+  }
+  showCropperModal.value = false
+}
+
+async function confirmCrop() {
+  if (!cropperInstance.value) return
+
+  const originalFile = pestImageFile.value
+  if (!originalFile) {
+    pushToast(t.value.noImageSelected, 'warning')
+    return
+  }
+
+  try {
+    const cropData = cropperInstance.value.getData(true)
+    const imageData = cropperInstance.value.getImageData()
+    const originalArea = Math.max(1, imageData.naturalWidth * imageData.naturalHeight)
+    const cropArea = Math.max(1, cropData.width * cropData.height)
+    const cropAreaRatio = cropArea / originalArea
+    const cropTouchesFullImage = (
+      cropAreaRatio >= 0.98
+      && cropData.x <= imageData.naturalWidth * 0.01
+      && cropData.y <= imageData.naturalHeight * 0.01
+    )
+
+    const canvas = cropperInstance.value.getCroppedCanvas({
+      // 保留足够的病斑、虫体纹理，同时限制超大手机照片的上传体积。
+      maxWidth: 2048,
+      maxHeight: 2048,
+      fillColor: '#fff',
+      imageSmoothingEnabled: true,
+      imageSmoothingQuality: 'high',
+    })
+
+    canvas.toBlob(
+      async (blob) => {
+        let previewUrl = originalImagePreview.value
+        let analysisFile = originalFile
+
+        if (blob) {
+          previewUrl = await blobToDataURL(blob)
+          if (!cropTouchesFullImage) {
+            const originalBaseName = originalFile.name.replace(/\.[^.]+$/, '') || 'durian-image'
+            analysisFile = new File(
+              [blob],
+              `${originalBaseName}-crop.jpg`,
+              { type: 'image/jpeg', lastModified: Date.now() },
+            )
+          }
+        } else {
+          console.warn('裁剪预览生成失败，改用原图预览')
+        }
+
+        pestImageFile.value = analysisFile
+        console.log(
+          cropTouchesFullImage
+            ? `未缩小裁剪区域，分析使用原图: ${originalFile.name}, ${(originalFile.size / 1024).toFixed(1)}KB`
+            : `分析使用裁剪图: ${analysisFile.name}, ${(analysisFile.size / 1024).toFixed(1)}KB, 范围 ${(cropAreaRatio * 100).toFixed(1)}%`,
+        )
+
+        // 不立即发送图片。图片先作为输入框上方的 tag 等待用户确认发送，避免出现“图片 + 文本”混合消息占位。
+        pestImagePreview.value = previewUrl
+        closeCropperModal({ keepSelectedImage: true })
+        await nextTick()
+      },
+      'image/jpeg',
+      0.92,
+    )
+  } catch (error) {
+    console.error('裁剪失败:', error)
+    pushToast(t.value.errorConnection, 'error')
+  }
+}
+
+async function classifyAndAnalyze(file, previewUrl) {
+  if (isAnalyzingImage.value) {
+    console.warn('图片分析正在进行，忽略重复请求')
+    return
+  }
+
+  const uiLang = getCurrentUILang()
+
+  console.log('图片分析使用语言:', uiLang)
+  console.log('新版图片分析：跳过本地分类模型，直接调用视觉大模型')
+
+  isAnalyzingImage.value = true
+  isSending.value = true
+  let assistantMessage = null
+  let hasAnalysisResult = false
+
+  try {
+    console.log('开始视觉大模型图片分析...')
+    console.log(`图片大小: ${(file.size / 1024).toFixed(1)}KB`)
+
+    // 图片问题也要进入历史上下文，否则后续“严重吗/要不要喷药/怎么处理”无法追问。
+    // 但前端展示不再强制显示“[图片]”这类占位文本；只有用户真的输入了问题，才作为图片说明显示。
+    const typedImageQuestion = (userInput.value || '').trim()
+    const imageQuestion = typedImageQuestion || getUITextByLang(uiLang, 'imageAnalyzePrompt') || '请分析这张榴莲图片'
+    userInput.value = ''
+
+    // 确保有对话 ID
+    const imageConversationId = await createConversationIfNeeded(imageQuestion)
+    if (!imageConversationId) {
+      throw new Error('创建图片分析对话失败')
+    }
+
+    // 立即添加用户图片消息：图片单独展示；只有用户输入了真实问题，才显示文字说明。
+    const userMsg = {
+      role: 'user',
+      content: typedImageQuestion,
+      imageKey: `img_${Date.now()}`,
+      image_url: null,
+      messageType: 'image',
+    }
+    messages.value.push(userMsg)
+    messageImages.value = {
+      ...messageImages.value,
+      [userMsg.imageKey]: previewUrl,
+    }
+
+    // 立即添加助手消息占位符
+    assistantMessage = {
+      role: 'assistant',
+      content: getRuntimeText(uiLang, 'imageGeneratingWithClass') || getUITextByLang(uiLang, 'imageAnalyzing'),
+      isStreaming: true,
+      messageType: 'image_analysis',
+      evidence: [],
+      evidence_quality: 'none',
+    }
+    messages.value.push(assistantMessage)
+    const assistantMessageIndex = messages.value.length - 1
+
+    await scrollToBottom(true)
+    await scrollToBottom(true)
+
+    // 图片分析改为真正流式：/analyze_pest/stream2
+    console.log('开始图片流式分析...')
+    const analyzeFormData = new FormData()
+    analyzeFormData.append('file', file)
+    analyzeFormData.append('query', imageQuestion)
+    analyzeFormData.append('response_language', uiLang)
+    analyzeFormData.append('conversation_id', imageConversationId)
+
+    const streamResponse = await fetch(`${API_BASE_URL}/analyze_pest/stream2`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: analyzeFormData,
+    })
+
+    if (!streamResponse.ok) {
+      const text = await streamResponse.text()
+      throw new Error(`图片流式分析失败: HTTP ${streamResponse.status} ${text}`)
+    }
+
+    if (!streamResponse.body) {
+      throw new Error('浏览器不支持 ReadableStream，无法流式读取图片分析结果')
+    }
+
+    const reader = streamResponse.body.getReader()
+    const decoder = new TextDecoder('utf-8')
+    let buffer = ''
+    let fullResponse = ''
+    let imageUrl = null
+    let activeContextCard = null
+    let imageEvidence = []
+    let imageEvidenceQuality = 'none'
+    let tokensGenerated = 0
+    let streamDone = false
+
+    while (!streamDone) {
+      const { value, done } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const events = buffer.split('\n\n')
+      buffer = events.pop() || ''
+
+      for (const eventText of events) {
+        const lines = eventText
+          .split('\n')
+          .map(line => line.trim())
+          .filter(Boolean)
+
+        for (const line of lines) {
+          if (!line.startsWith('data:')) continue
+
+          const raw = line.slice(5).trim()
+          if (!raw) continue
+
+          if (raw === '[DONE]') {
+            streamDone = true
+            break
+          }
+
+          let payload
+          try {
+            payload = JSON.parse(raw)
+          } catch (parseError) {
+            console.warn('图片流式 SSE 解析失败:', raw, parseError)
+            continue
+          }
+
+          if (payload.type === 'metadata') {
+            imageUrl = payload.image_url || imageUrl
+            imageEvidence = Array.isArray(payload.evidence) ? payload.evidence : imageEvidence
+            imageEvidenceQuality = payload.evidence_quality || imageEvidenceQuality
+
+            assistantMessage.evidence = imageEvidence
+            assistantMessage.evidence_quality = imageEvidenceQuality
+            updateEvidencePanelFromMessage(assistantMessage, assistantMessageIndex, { expandSidebar: false })
+
+            if (imageUrl) {
+              userMsg.image_url = imageUrl
+            }
+
+            assistantMessage.content = ''
+            assistantMessage.isStreaming = true
+            assistantMessage.messageType = 'image_analysis'
+            messages.value = [...messages.value]
+            scheduleMessagesRender(true)
+
+            try {
+              saveEvidenceCache(currentConversationId.value, evidence.value, evidenceQuality.value)
+              saveEvidenceHistoryCache(currentConversationId.value)
+            } catch (cacheError) {
+              console.warn('参考资料缓存失败:', cacheError)
+            }
+          } else if (payload.type === 'content') {
+            const chunk = payload.content || ''
+            if (!chunk) continue
+
+            fullResponse += chunk
+            assistantMessage.content = normalizeModelOutput(fullResponse)
+            assistantMessage.isStreaming = true
+            assistantMessage.messageType = 'image_analysis'
+            hasAnalysisResult = true
+
+            // 每个 chunk 都强制触发 Vue 渲染。
+            messages.value = [...messages.value]
+            scheduleMessagesRender(true)
+          } else if (payload.type === 'done') {
+            tokensGenerated = Number(payload.tokens_generated || tokensGenerated || 0)
+            activeContextCard = payload.active_context_card || activeContextCard
+            imageUrl = payload.image_url || imageUrl
+            imageEvidence = Array.isArray(payload.evidence) ? payload.evidence : imageEvidence
+            imageEvidenceQuality = payload.evidence_quality || imageEvidenceQuality
+            streamDone = true
+          } else if (payload.type === 'error') {
+            throw new Error(payload.error || '图片流式分析失败')
+          }
+        }
+      }
+    }
+
+    const finalResponse = normalizeModelOutput(fullResponse)
+
+    if (!finalResponse) {
+      throw new Error('图片流式分析返回内容为空')
+    }
+
+    assistantMessage.content = finalResponse
+    assistantMessage.active_context_card = activeContextCard || null
+    assistantMessage.isStreaming = false
+    assistantMessage.messageType = 'image_analysis'
+    assistantMessage.evidence = imageEvidence
+    assistantMessage.evidence_quality = imageEvidenceQuality
+    updateEvidencePanelFromMessage(assistantMessage, assistantMessageIndex, { expandSidebar: false })
+    hasAnalysisResult = true
+    messages.value = [...messages.value]
+    saveEvidenceCache(currentConversationId.value, evidence.value, evidenceQuality.value)
+    saveEvidenceHistoryCache(currentConversationId.value)
+
+    if (tokensGenerated) {
+      totalTokens.value += tokensGenerated
+    }
+
+    await scrollToBottom(true)
+
+    // 保存用户图片消息，不阻塞流式显示。
+    saveMessageToConversation('user', imageQuestion, imageUrl || null).catch((saveUserError) => {
+      console.warn('保存用户图片消息失败:', saveUserError)
+    })
+
+    // 保存助手分析消息，不阻塞流式显示。
+    saveMessageToConversation(
+      'assistant',
+      assistantMessage.content,
+      null,
+      assistantMessage.active_context_card || null,
+      assistantMessage.evidence || [],
+      assistantMessage.evidence_quality || 'none'
+    ).catch((saveAssistantError) => {
+      console.warn('保存助手分析消息失败:', saveAssistantError)
+    })
+
+  } catch (error) {
+    console.error('分析失败:', error)
+    console.error('图片分析请求异常类型:', error?.name)
+    console.error('图片分析请求异常信息:', error?.message)
+
+    if (error?.message && (error.message.includes('NetworkError') || error.message.includes('Failed to fetch'))) {
+      console.error('这通常表示请求没有拿到 HTTP 响应，可能是 Vite 代理断开、后端进程中断、CORS 或网络连接问题。')
+    }
+
+    // 只有在没有真实分析结果时才显示错误提示
+    if (!hasAnalysisResult && assistantMessage) {
+      assistantMessage.content = t.value.imageAnalysisFailed
+      assistantMessage.isStreaming = false
+      messages.value = [...messages.value]
+      pushToast(t.value.imageAnalysisFailed, 'error')
+    }
+  } finally {
+    isSending.value = false
+    isAnalyzingImage.value = false
+    pestImageFile.value = null
+    pestImagePreview.value = null
+  }
+}
+
+async function checkHealth() {
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoints.health}`, {
+      headers: getAuthHeaders(),
+    })
+    if (!response.ok) throw new Error('Health check failed')
+    const data = await response.json()
+    isConnected.value = true
+    modelInfo.value = data
+  } catch (error) {
+    isConnected.value = false
+  }
+}
+
+
+function clearCurrentEvidencePanel() {
+  evidence.value = []
+  evidenceQuality.value = 'none'
+  evidenceExpanded.value = {}
+  activeEvidenceMessageIndex.value = null
+}
+
+function mergeRagRuntimeInfo(data = {}) {
+  modelInfo.value = {
+    ...modelInfo.value,
+    ...data,
+    rag_enabled: data.rag_enabled ?? modelInfo.value.rag_enabled,
+    rag_chunks: data.rag_chunks ?? data.chunks_count ?? modelInfo.value.rag_chunks ?? 0,
+    rag_pdf_files: data.rag_pdf_files ?? data.pdf_count ?? modelInfo.value.rag_pdf_files ?? 0,
+    rag_auto_chunks: data.rag_auto_chunks ?? data.auto_chunks ?? data.chunks_count ?? modelInfo.value.rag_auto_chunks ?? 0,
+    rag_auto_last_sync: data.rag_auto_last_sync ?? data.last_sync ?? modelInfo.value.rag_auto_last_sync,
+  }
+}
+
+async function uploadRagPdf(event) {
+  const input = event?.target
+  const file = input?.files?.[0]
+  if (input) input.value = ''
+  if (!file) return
+
+  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+  if (!isPdf) {
+    ragUploadStatus.value = t.value.ragUploadFailed
+    pushToast(t.value.ragUploadFailed, 'error')
+    return
+  }
+
+  isUploadingRagPdf.value = true
+  ragUploadStatus.value = t.value.ragUploading
+
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await fetch(`${API_BASE_URL}${endpoints.ragUploadPdf}`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: formData,
+    })
+    const data = await readApiPayload(response)
+    if (!response.ok) {
+      throw new Error(getApiErrorDetail(data, t.value.ragUploadFailed))
+    }
+
+    mergeRagRuntimeInfo(data)
+    ragUploadStatus.value = `${t.value.ragUploadDone}: ${file.name}`
+    pushToast(t.value.ragUploadDone, 'success')
+    await checkHealth()
+  } catch (error) {
+    console.error('RAG PDF 上传失败:', error)
+    const message = error?.message || t.value.ragUploadFailed
+    ragUploadStatus.value = message
+    pushToast(`${t.value.ragUploadFailed}: ${message}`, 'error')
+  } finally {
+    isUploadingRagPdf.value = false
+    if (ragPdfInput.value) ragPdfInput.value.value = ''
+    if (mobileRagPdfInput.value) mobileRagPdfInput.value.value = ''
+  }
+}
+
+async function rebuildRag() {
+  if (isUploadingRagPdf.value) return
+
+  isUploadingRagPdf.value = true
+  ragUploadStatus.value = t.value.ragUploading
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoints.ragRebuild}`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    })
+    const data = await readApiPayload(response)
+    if (!response.ok) {
+      throw new Error(getApiErrorDetail(data, t.value.ragRebuildFailed))
+    }
+
+    mergeRagRuntimeInfo(data)
+    ragUploadStatus.value = t.value.ragRebuildDone
+    pushToast(t.value.ragRebuildDone, 'success')
+    await checkHealth()
+  } catch (error) {
+    console.error('RAG 重建失败:', error)
+    const message = error?.message || t.value.ragRebuildFailed
+    ragUploadStatus.value = message
+    pushToast(`${t.value.ragRebuildFailed}: ${message}`, 'error')
+  } finally {
+    isUploadingRagPdf.value = false
+  }
+}
+
+async function sendMessage(prefilled = '') {
+  if (sendingLock || isSending.value) {
+    return
+  }
+
+  const text = (prefilled || userInput.value).trim()
+  const hasPendingImage = Boolean(pestImageFile.value)
+
+  if (hasPendingImage) {
+    if (!isConnected.value) {
+      pushToast(t.value.errorConnection, 'error')
+      return
+    }
+    sendingLock = true
+    try {
+      await classifyAndAnalyze(pestImageFile.value, pestImagePreview.value || originalImagePreview.value)
+    } finally {
+      sendingLock = false
+    }
+    return
+  }
+
+  if (!text) {
+    pushToast(t.value.errorEmpty, 'warning')
+    return
+  }
+  if (!isConnected.value) {
+    pushToast(t.value.errorConnection, 'error')
+    return
+  }
+
+  sendingLock = true
+  isSending.value = true
+
+  // 确保有对话 ID
+  const activeConversationId = await createConversationIfNeeded(text)
+  if (!activeConversationId) {
+    isSending.value = false
+    sendingLock = false
+    return
+  }
+
+  // Keep the latest valid references visible while the new answer streams.
+  // They are replaced only when this turn provides a new valid evidence set.
+
+  // 输入语言用于筛选历史和控制回答语言：英文输入回英文，中文输入回中文。
+  // 图片分析仍然按当前界面语言走，文字聊天按用户输入语言走。
+  const detectedLanguage = detectInputLanguage(text)
+  const answerLanguage = detectedLanguage
+
+  // 过滤空消息，但保留图片分析产生的文本/隐藏上下文，支持后续追问。
+  // 旧逻辑会把 messageType === 'image_analysis' 全部排除，导致“这张图严重吗/要不要喷药”没有上下文。
+  const historyMessages = messages.value
+    .filter((msg) => msg.content && msg.content.trim())
+    .slice(-8)
+    .map((msg) => ({
+      role: msg.role,
+      content: normalizeModelOutput(msg.content),
+      image_url: msg.image_url || null,
+      active_context_card: msg.active_context_card || null,
+    }))
+
+  messages.value.push({ role: 'user', content: text })
+  const assistantMessage = {
+    role: 'assistant',
+    content: streamMode.value ? getRuntimeText(answerLanguage, 'chatPreparing') : '',
+    isStreaming: true,
+    evidence: [],
+    evidence_quality: 'none',
+  }
+  messages.value.push(assistantMessage)
+  const assistantMessageIndex = messages.value.length - 1
+  userInput.value = ''
+  await nextTick()
+  resizeComposerInput()
+  await scrollToBottom(true)
+
+  // 保存用户消息不要阻塞模型请求，否则历史接口慢/失败时会卡在“正在连接模型”
+  saveMessageToConversation('user', text).catch((error) => {
+    console.warn('[DurianGPT] 保存用户消息失败，但继续请求模型:', error)
+  })
+
+  console.log('当前 UI 语言:', language.value)
+  console.log('输入检测语言:', detectedLanguage)
+  console.log('回答语言:', answerLanguage)
+
+  try {
+    const endpoint = endpoints.chatStream
+    console.log('[DurianGPT] 开始请求模型:', `${API_BASE_URL}${endpoint}`)
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify({
+        conversation_id: activeConversationId,
+        messages: [...historyMessages, { role: 'user', content: text }],
+        max_tokens: Number(maxTokens.value) || DEFAULT_CHAT_MAX_TOKENS,
+        max_new_tokens: Number(maxTokens.value) || DEFAULT_CHAT_MAX_TOKENS,
+        temperature: Number(temperature.value),
+        top_p: Number(topP.value),
+        use_rag: true,
+        stream: true,
+        response_language: answerLanguage,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '')
+      throw new Error(`API error: ${response.status} ${errorText}`)
+    }
+
+    if (streamMode.value) {
+      if (!response.body) {
+        throw new Error('当前浏览器不支持 ReadableStream')
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder('utf-8')
+      let buffer = ''
+      let streamDone = false
+      let receivedContent = false
+      let lastWaitingUpdate = 0
+
+      while (!streamDone) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const parsedBuffer = splitSSEEvents(buffer)
+        buffer = parsedBuffer.rest
+
+        for (const rawEvent of parsedBuffer.events) {
+          const data = getSSEData(rawEvent)
+          if (!data) continue
+
+          if (data === '[DONE]') {
+            streamDone = true
+            break
+          }
+
+          let json = null
+          try {
+            json = JSON.parse(data)
+          } catch (e) {
+            console.error('SSE parse error:', e, 'raw data:', data, 'raw event:', rawEvent)
+            continue
+          }
+
+          if (json.type === 'content') {
+            if (!receivedContent) {
+              assistantMessage.content = ''
+              receivedContent = true
+            }
+            assistantMessage.content += normalizeStreamChunk(json.content || '')
+            scheduleMessagesRender(false)
+          } else if (json.type === 'metadata') {
+            if (json.tokens_generated) {
+              totalTokens.value += Number(json.tokens_generated)
+            }
+            if (json.active_context_card) {
+              assistantMessage.active_context_card = json.active_context_card
+            }
+            const metadataEvidence = Array.isArray(json.evidence) ? json.evidence : []
+            const metadataQuality = json.evidence_quality || 'none'
+
+            if (metadataQuality === 'none' || !metadataEvidence.length) {
+              assistantMessage.evidence = []
+              assistantMessage.evidence_quality = 'none'
+              continue
+            }
+            assistantMessage.evidence = metadataEvidence
+            assistantMessage.evidence_quality = metadataQuality
+            updateEvidencePanelFromMessage(assistantMessage, assistantMessageIndex, { expandSidebar: false })
+            saveEvidenceCache(currentConversationId.value, evidence.value, evidenceQuality.value)
+            saveEvidenceHistoryCache(currentConversationId.value)
+          } else if (json.type === 'done') {
+            if (json.tokens_generated) {
+              totalTokens.value += Number(json.tokens_generated)
+            }
+            if (json.active_context_card) {
+              assistantMessage.active_context_card = json.active_context_card
+            }
+            assistantMessage.isStreaming = false
+            if (Array.isArray(json.evidence)) {
+              const doneEvidence = json.evidence
+              const doneQuality = json.evidence_quality || assistantMessage.evidence_quality || 'none'
+              assistantMessage.evidence = doneEvidence
+              assistantMessage.evidence_quality = doneQuality
+              updateEvidencePanelFromMessage(assistantMessage, assistantMessageIndex, { expandSidebar: false })
+              saveEvidenceCache(currentConversationId.value, evidence.value, evidenceQuality.value)
+              saveEvidenceHistoryCache(currentConversationId.value)
+              messages.value = [...messages.value]
+            }
+          } else if (json.type === 'evidence') {
+            if (Array.isArray(json.evidence)) {
+              const translatedEvidence = json.evidence
+              const translatedQuality = json.evidence_quality || assistantMessage.evidence_quality || 'none'
+              assistantMessage.evidence = translatedEvidence
+              assistantMessage.evidence_quality = translatedQuality
+              updateEvidencePanelFromMessage(assistantMessage, assistantMessageIndex, { expandSidebar: false })
+              saveEvidenceCache(currentConversationId.value, evidence.value, evidenceQuality.value)
+              saveEvidenceHistoryCache(currentConversationId.value)
+              messages.value = [...messages.value]
+            }
+          } else if (json.type === 'status' || json.type === 'ping') {
+            const now = Date.now()
+            if (!receivedContent && now - lastWaitingUpdate > 900) {
+              lastWaitingUpdate = now
+              assistantMessage.content = getRuntimeText(answerLanguage, 'chatGenerating')
+              scheduleMessagesRender(true)
+            }
+          } else if (json.type === 'error') {
+            throw new Error(json.error || t.value.errorConnection)
+          }
+        }
+      }
+    } else {
+      // 非流式处理
+      const data = await response.json()
+      assistantMessage.content = normalizeModelOutput(data.response || '')
+      assistantMessage.active_context_card = data.active_context_card || null
+
+      // 更新 Token 计数
+      totalTokens.value += Number(data.tokens_generated || 0)
+
+      const responseEvidence = Array.isArray(data.evidence) ? data.evidence : []
+      const responseQuality = data.evidence_quality || 'none'
+      assistantMessage.evidence = responseEvidence
+      assistantMessage.evidence_quality = responseQuality
+      updateEvidencePanelFromMessage(assistantMessage, assistantMessageIndex, { expandSidebar: false })
+      saveEvidenceCache(currentConversationId.value, evidence.value, evidenceQuality.value)
+      saveEvidenceHistoryCache(currentConversationId.value)
+
+      messages.value = [...messages.value]
+      await scrollToBottom(true)
+    }
+
+    assistantMessage.content = normalizeModelOutput(assistantMessage.content)
+    assistantMessage.isStreaming = false
+    messages.value = [...messages.value]
+    saveEvidenceHistoryCache(currentConversationId.value)
+    await scrollToBottom(true)
+
+    if (!assistantMessage.content) {
+      throw new Error('模型返回内容为空')
+    }
+
+    // 保存助手消息
+    await saveMessageToConversation(
+      'assistant',
+      assistantMessage.content,
+      null,
+      assistantMessage.active_context_card || null,
+      assistantMessage.evidence || [],
+      assistantMessage.evidence_quality || 'none'
+    )
+  } catch (error) {
+    console.error('发送消息失败:', error)
+    const message = error?.message || t.value.errorConnection
+    assistantMessage.content = message
+    assistantMessage.isStreaming = false
+    messages.value = [...messages.value]
+    pushToast(message, 'error')
+  } finally {
+    isSending.value = false
+    sendingLock = false
+  }
+}
+
+function startNewChat() {
+  showHistorySidebar.value = false
+  currentConversationId.value = null
+
+  messages.value = []
+  messageImages.value = {}
+
+  evidence.value = []
+  evidenceQuality.value = 'none'
+  evidenceExpanded.value = {}
+  activeEvidenceMessageIndex.value = null
+
+  userInput.value = ''
+
+  pestImageFile.value = null
+  pestImagePreview.value = null
+  pestClassification.value = null
+  originalImagePreview.value = null
+
+  showCropperModal.value = false
+
+  if (cropperInstance.value) {
+    cropperInstance.value.destroy()
+    cropperInstance.value = null
+  }
+
+  isSending.value = false
+  totalTokens.value = 0
+}
+
+async function initializeLoggedInSession() {
+  totalTokens.value = Number(localStorage.getItem(getUserStorageKey('totalTokens')) || 0)
+  currentConversationId.value = null
+  messages.value = []
+  messageImages.value = {}
+  conversations.value = []
+  evidence.value = []
+  evidenceQuality.value = 'none'
+  evidenceExpanded.value = {}
+  activeEvidenceMessageIndex.value = null
+  userInput.value = ''
+  pestImageFile.value = null
+  pestImagePreview.value = null
+  pestClassification.value = null
+  originalImagePreview.value = null
+  ragUploadStatus.value = ''
+  showHistorySidebar.value = false
+
+  await checkHealth()
+  await loadConversations()
+
+  const savedConversationId = localStorage.getItem(getUserStorageKey('currentConversationId'))
+  if (savedConversationId) {
+    await loadConversation(savedConversationId)
+  }
+}
+
+async function login() {
+  const username = loginUsername.value.trim()
+  const password = loginPassword.value
+  const account = LOGIN_ACCOUNTS.find((item) => item.username === username && item.password === password)
+
+  if (!account) {
+    loginError.value = t.value.loginFailed
+    return
+  }
+
+  currentUser.value = account.username
+  localStorage.setItem(CURRENT_USER_KEY, account.username)
+  loginUsername.value = account.username
+  loginPassword.value = ''
+  loginError.value = ''
+  await initializeLoggedInSession()
+}
+
+function logout() {
+  const previousUser = currentUser.value
+  currentConversationId.value = null
+  messages.value = []
+  messageImages.value = {}
+  evidence.value = []
+  evidenceQuality.value = 'none'
+  evidenceExpanded.value = {}
+  activeEvidenceMessageIndex.value = null
+  userInput.value = ''
+  pestImageFile.value = null
+  pestImagePreview.value = null
+  pestClassification.value = null
+  originalImagePreview.value = null
+  ragUploadStatus.value = ''
+  conversations.value = []
+  currentUser.value = ''
+  localStorage.removeItem(CURRENT_USER_KEY)
+  totalTokens.value = 0
+  loginUsername.value = previousUser || 'admin2'
+  loginPassword.value = ''
+  loginError.value = ''
+  showHistorySidebar.value = false
+}
+
+function onKeyPress(event) {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault()
+    if (sendingLock || isSending.value) return
+    sendMessage()
+  }
+}
+
+onMounted(async () => {
+  document.documentElement.lang = language.value
+  document.addEventListener('click', handleMarkdownTableButtonEvent, tableButtonEventOptions)
+  document.addEventListener('pointerup', handleMarkdownTableButtonEvent, tableButtonEventOptions)
+  document.addEventListener('touchend', handleMarkdownTableButtonEvent, tableButtonEventOptions)
+  window.addEventListener('scroll', updateMobileTableControlsVisibility, { passive: true })
+  window.addEventListener('resize', updateMobileTableControlsVisibility, { passive: true })
+
+  if (isLoggedIn.value) {
+    await initializeLoggedInSession()
+  }
+
+  healthTimer = window.setInterval(() => {
+    if (isLoggedIn.value) {
+      checkHealth()
+    }
+  }, 30000)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleMarkdownTableButtonEvent, tableButtonEventOptions)
+  document.removeEventListener('pointerup', handleMarkdownTableButtonEvent, tableButtonEventOptions)
+  document.removeEventListener('touchend', handleMarkdownTableButtonEvent, tableButtonEventOptions)
+  window.removeEventListener('scroll', updateMobileTableControlsVisibility)
+  window.removeEventListener('resize', updateMobileTableControlsVisibility)
+
+  if (healthTimer) {
+    clearInterval(healthTimer)
+  }
+  if (pendingMessageRender) {
+    window.cancelAnimationFrame(pendingMessageRender)
+    pendingMessageRender = 0
+  }
+})
+
+
+if (typeof window !== 'undefined') {
+  window.setTimeout(() => ensureMarkdownTableButtons(), 300)
+  window.setTimeout(() => ensureMarkdownTableButtons(), 1200)
+  window.setTimeout(() => ensureMarkdownTableButtons(), 2500)
+
+  if (!window.__durianEnsureTableButtonsTimer) {
+    window.__durianEnsureTableButtonsTimer = window.setInterval(() => {
+      ensureMarkdownTableButtons()
+    }, 1500)
+  }
+}
+
+</script>
+
+<template>
+  <div v-if="!isLoggedIn" class="login-shell">
+    <form class="login-panel" @submit.prevent="login">
+      <img :src="logoUrl" alt="Durian Logo" class="login-logo" />
+      <h1>{{ t.loginTitle }}</h1>
+      <p>{{ t.loginSubtitle }}</p>
+
+      <label class="login-field">
+        <span>{{ t.username }}</span>
+        <select v-model="loginUsername">          <option value="admin2">admin2</option>
+        </select>
+      </label>
+
+      <label class="login-field">
+        <span>{{ t.password }}</span>
+        <input v-model="loginPassword" type="password" autocomplete="current-password" />
+      </label>
+
+      <div v-if="loginError" class="login-error">{{ loginError }}</div>
+      <button class="btn btn-primary login-submit" type="submit">{{ t.login }}</button>
+    </form>
+  </div>
+
+  <div
+    v-else
+    class="app-shell with-right-sidebar"
+    :class="{ 'right-sidebar-collapsed': rightSidebarCollapsed }"
+    :style="{ '--right-sidebar-width': rightSidebarCollapsed ? '56px' : `${rightSidebarWidth}px` }"
+  >
+    <aside class="sidebar left-sidebar">
+      <div class="brand-panel">
+        <img :src="logoUrl" alt="Durian Logo" class="brand-mark" />
+        <div>
+          <h1>{{ t.pageTitle }}</h1>
+          <p>{{ t.subtitle }}</p>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <select v-model="language" class="select">
+          <option value="zh">中文</option>
+          <option value="en">English</option>
+          <option value="ms">Bahasa Melayu</option>
+          <option value="th">ไทย</option>
+        </select>
+        <button class="btn btn-primary" @click="startNewChat">{{ t.newChat }}</button>
+        <div class="session-row">
+          <span>{{ t.account }}: {{ currentUser }}</span>
+          <button class="session-logout" type="button" @click="logout">{{ t.logout }}</button>
+        </div>
+      </div>
+
+      <section class="rag-control-panel">
+        <div class="section-title">RAG</div>
+        <input
+          ref="ragPdfInput"
+          type="file"
+          accept="application/pdf,.pdf"
+          class="hidden-file-input"
+          @change="uploadRagPdf"
+        />
+        <button class="btn btn-secondary" :disabled="isUploadingRagPdf" @click="ragPdfInput?.click()">
+          {{ isUploadingRagPdf ? t.ragUploading : t.ragUploadPdf }}
+        </button>
+        <button class="btn btn-secondary" :disabled="isUploadingRagPdf" @click="rebuildRag">
+          {{ t.ragRebuild }}
+        </button>
+        <div v-if="ragUploadStatus" class="rag-upload-status">{{ ragUploadStatus }}</div>
+      </section>
+
+      <section class="history-panel">
+        <div class="section-title">{{ t.history }}</div>
+
+        <div v-if="conversations.length === 0" class="empty-state">
+          {{ t.noHistory }}
+        </div>
+
+        <div
+          v-for="conv in conversations"
+          :key="conv.id"
+          class="history-item"
+          :class="{ active: conv.id === currentConversationId }"
+          @click="loadConversation(conv.id)"
+        >
+          <div class="history-content">
+            <div class="history-title">{{ conv.title }}</div>
+            <div class="history-meta">
+              {{ conv.message_count || 0 }} {{ t.messageCountUnit }}
+            </div>
+          </div>
+          <button
+            class="history-delete-btn"
+            :title="t.deleteConversation"
+            @click.stop="deleteConversation(conv.id)"
+          >
+            ×
+          </button>
+        </div>
+      </section>
+    </aside>
+
+    <main class="main-panel">
+      <section class="mobile-action-bar">
+        <div class="mobile-action-row">
+          <button class="btn btn-secondary mobile-history-btn" type="button" @click="openMobileHistory">
+            {{ t.history }}
+            <span class="mobile-history-count">{{ conversations.length }}</span>
+          </button>
+          <select v-model="language" class="select mobile-language">
+            <option value="zh">中文</option>
+            <option value="en">English</option>
+            <option value="ms">Bahasa Melayu</option>
+            <option value="th">ไทย</option>
+          </select>
+          <button class="btn btn-primary" type="button" @click="startNewChat">{{ t.newChat }}</button>
+        </div>
+        <div class="mobile-action-row">
+          <input
+            ref="mobileRagPdfInput"
+            type="file"
+            accept="application/pdf,.pdf"
+            class="hidden-file-input"
+            @change="uploadRagPdf"
+          />
+          <button class="btn btn-secondary" type="button" :disabled="isUploadingRagPdf" @click="mobileRagPdfInput?.click()">
+            {{ isUploadingRagPdf ? t.ragUploading : t.ragUploadPdf }}
+          </button>
+          <button class="btn btn-secondary" type="button" :disabled="isUploadingRagPdf" @click="rebuildRag">
+            {{ t.ragRebuild }}
+          </button>
+        </div>
+        <div v-if="ragUploadStatus" class="rag-upload-status mobile-rag-status">{{ ragUploadStatus }}</div>
+      </section>
+
+      <section v-if="messages.length === 0" class="welcome-panel">
+        <div class="welcome-card">
+          <div class="hero-badge">DurianGPT</div>
+          <h2>{{ t.subtitle }}</h2>
+        </div>
+      </section>
+
+      <section v-else ref="chatMessagesRef" class="messages-panel">
+        <div
+          v-for="(message, index) in messages"
+          :key="`${message.role}-${index}`"
+          class="message-row"
+          :class="message.role"
+        >
+          <div class="avatar">{{ message.role === 'user' ? t.userAvatar : t.assistantAvatar }}</div>
+          <div class="message-bubble" :class="[message.role, { 'has-table': hasMarkdownTable(message.content) }]">
+            <img v-if="message.imageKey && messageImages[message.imageKey]" :src="messageImages[message.imageKey]" class="message-image" alt="uploaded" />
+            <div v-if="message.content" v-html="renderStructuredAnswer(message.content)" class="message-content" />
+            <button
+              v-if="message.role === 'assistant'"
+              type="button"
+              class="message-evidence-panel"
+              :class="{
+                active: activeEvidenceMessageIndex === index,
+                empty: getMessageEvidenceCount(message) === 0,
+              }"
+              :disabled="getMessageEvidenceCount(message) === 0"
+              @click="selectMessageEvidence(message, index)"
+            >
+              <div class="message-evidence-title">
+                <span>
+                  {{ t.references }}
+                  <span v-if="getMessageEvidenceCount(message)"> · {{ getQualityLabel(message.evidence_quality) }}</span>
+                </span>
+                <span class="message-evidence-action">{{ getMessageEvidenceCount(message) }}</span>
+              </div>
+              <div
+                v-for="(item, evidenceIndex) in getInlineMessageEvidence(message, index)"
+                :key="`inline-evidence-${index}-${evidenceIndex}`"
+                class="message-evidence-item"
+              >
+                <div class="message-evidence-meta">
+                  <strong>[{{ t.evidenceLabel }}{{ evidenceIndex + 1 }}]</strong>
+                  <span v-if="getEvidenceScore(item)">{{ getEvidenceScore(item) }}</span>
+                </div>
+                <div class="message-evidence-text">{{ getInlineEvidencePreview(getEvidenceText(item)) }}</div>
+                <div class="message-evidence-source">{{ getEvidenceSource(item) }}</div>
+              </div>
+              <div v-if="getMessageEvidenceCount(message) === 0" class="message-evidence-empty">
+                {{ t.noEvidence }}
+              </div>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="composer-panel">
+        <div class="composer-controls">
+          <label class="switch">
+            <input v-model="streamMode" type="checkbox" />
+            <span>{{ t.streamMode }}</span>
+          </label>
+          <div class="control-sliders">
+            <div class="range-group">
+              <label>{{ t.tempLabel }}</label>
+              <input v-model="temperature" type="range" min="0" max="1.5" step="0.1" />
+              <span>{{ temperature }}</span>
+            </div>
+            <div class="range-group">
+              <label>{{ t.topPLabel }}</label>
+              <input v-model="topP" type="range" min="0" max="1" step="0.05" />
+              <span>{{ topP }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="pestImageFile && pestImagePreview" class="pending-image-tag">
+          <img :src="pestImagePreview" class="pending-image-thumb" alt="selected image" />
+          <div class="pending-image-meta">
+            <span class="pending-image-title">{{ pestImageFile.name || t.selectedImage }}</span>
+            <span class="pending-image-hint">图片已添加，输入问题后发送；不输入则直接分析图片</span>
+          </div>
+          <button class="pending-image-remove" type="button" :disabled="isSending" @click="clearPendingImage">×</button>
+        </div>
+
+        <div class="composer-input-area">
+          <input
+            ref="imageInput"
+            type="file"
+            accept="image/*"
+            style="display: none"
+            @change="onImageSelected"
+          />
+          <button class="btn btn-icon" :disabled="isSending" @click.prevent="$refs.imageInput?.click()" title="上传图片">
+            ➕
+          </button>
+          <textarea
+            ref="composerInputRef"
+            v-model="userInput"
+            class="composer-input"
+            :placeholder="t.placeholder"
+            rows="1"
+            @input="resizeComposerInput"
+            @focus="handleComposerFocus"
+            @keypress="onKeyPress"
+          />
+          <button class="btn btn-primary send-btn" :disabled="isSending" @click="sendMessage()">
+            {{ isSending ? '...' : t.send }}
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <div v-if="showHistorySidebar" class="mobile-history-overlay" @click="showHistorySidebar = false" />
+    <aside v-if="showHistorySidebar" class="mobile-history-drawer">
+      <div class="mobile-history-header">
+        <div>
+          <div class="section-title">{{ t.history }}</div>
+          <div class="mobile-history-subtitle">{{ conversations.length }} {{ t.messageCountUnit }}</div>
+        </div>
+        <button class="mobile-history-close" type="button" @click="showHistorySidebar = false">x</button>
+      </div>
+
+      <div class="mobile-history-list">
+        <div v-if="conversations.length === 0" class="empty-state">
+          {{ t.noHistory }}
+        </div>
+
+        <div
+          v-for="conv in conversations"
+          :key="`mobile-${conv.id}`"
+          class="history-item"
+          :class="{ active: conv.id === currentConversationId }"
+          @click="loadConversationFromMobile(conv.id)"
+        >
+          <div class="history-content">
+            <div class="history-title">{{ conv.title }}</div>
+            <div class="history-meta">
+              {{ conv.message_count || 0 }} {{ t.messageCountUnit }}
+            </div>
+          </div>
+          <button
+            class="history-delete-btn"
+            :title="t.deleteConversation"
+            @click.stop="deleteConversation(conv.id)"
+          >
+            x
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <aside class="sidebar right-sidebar" :class="{ collapsed: rightSidebarCollapsed }" :style="{ width: rightSidebarCollapsed ? '56px' : rightSidebarWidth + 'px' }">
+      <button
+        class="sidebar-toggle"
+        type="button"
+        @click="toggleRightSidebar"
+        :title="rightSidebarCollapsed ? '展开参考资料' : '折叠参考资料'"
+        :aria-label="rightSidebarCollapsed ? '展开参考资料' : '折叠参考资料'"
+      >
+        <span class="sidebar-toggle-icon" aria-hidden="true"></span>
+      </button>
+      <div v-if="!rightSidebarCollapsed" class="resize-handle" title="Drag to resize" @mousedown="startResizeRightSidebar" />
+      <section class="reference-card">
+        <div class="reference-header">
+          <div>
+            <div class="section-title">{{ t.references }}</div>
+            <div class="reference-summary">
+              {{ getVisibleEvidenceList(evidence, evidenceQuality).length }} {{ t.evidenceLabel }}
+              <span v-if="getVisibleEvidenceList(evidence, evidenceQuality).length"> · {{ getQualityLabel(evidenceQuality) }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="reference-scroll">
+          <div v-if="getVisibleEvidenceList(evidence, evidenceQuality).length === 0" class="empty-state">{{ t.noEvidence }}</div>
+          <article v-for="(item, index) in getVisibleEvidenceList(evidence, evidenceQuality)" :key="index" class="evidence-item">
+            <div class="evidence-head">
+              <strong>[{{ t.evidenceLabel }}{{ index + 1 }}]</strong>
+              <span v-if="formatEvidenceScore(item)">{{ formatEvidenceScore(item) }}</span>
+            </div>
+            <div class="evidence-text">{{ getEvidencePreview(getEvidenceText(item), index) }}</div>
+            <button
+              v-if="getEvidenceText(item) && getEvidenceText(item).length > 700"
+              type="button"
+              class="evidence-toggle"
+              @click="toggleEvidence(index)"
+            >
+              {{ evidenceExpanded[index] ? t.collapseText : t.expandText }}
+            </button>
+            <div class="evidence-source">{{ item.doc || t.unknownSource }}</div>
+          </article>
+        </div>
+      </section>
+    </aside>
+
+    <div v-if="showMobileTableControls" class="mobile-table-floating-controls" aria-label="表格横向滚动控制">
+      <button type="button" class="mobile-table-float-btn" aria-label="表格向左滚动" @click.stop.prevent="scrollActiveMobileTable(-1)">‹</button>
+      <button type="button" class="mobile-table-float-btn" aria-label="表格向右滚动" @click.stop.prevent="scrollActiveMobileTable(1)">›</button>
+    </div>
+
+    <div class="toast-stack">
+      <div v-for="toast in toasts" :key="toast.id" class="toast" :class="toast.type">
+        {{ toast.message }}
+      </div>
+    </div>
+
+    <!-- 裁剪模态框 -->
+    <div v-if="showCropperModal" class="cropper-modal-overlay" @click="closeCropperModal">
+      <div class="cropper-modal" @click.stop>
+        <div class="cropper-header">
+          <h3>{{ t.cropImageTitle }}</h3>
+          <button class="close-btn" @click="closeCropperModal">✕</button>
+        </div>
+        <div class="cropper-container">
+          <img id="cropper-image" :src="originalImagePreview" alt="Cropper" />
+        </div>
+        <div class="cropper-footer">
+          <button class="btn btn-secondary" @click="closeCropperModal">{{ t.cancel }}</button>
+          <button class="btn btn-primary" @click="confirmCrop">{{ t.confirmCrop }}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.login-shell {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #f4f7f4;
+}
+
+.login-panel {
+  width: min(380px, 100%);
+  padding: 24px;
+  border: 1px solid #dfe7df;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 10px 30px rgba(33, 70, 42, 0.12);
+}
+
+.login-logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.login-panel h1 {
+  margin: 14px 0 6px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.login-panel p {
+  margin: 0 0 20px;
+  color: #5b665d;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.login-field input,
+.login-field select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #ccd8ce;
+  border-radius: 6px;
+  font: inherit;
+  color: #1f2937;
+  background: white;
+}
+
+.login-error {
+  margin: 2px 0 12px;
+  color: #dc2626;
+  font-size: 13px;
+}
+
+.login-submit {
+  width: 100%;
+  min-height: 40px;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  grid-template-rows: 1fr auto;
+  height: 100vh;
+  height: 100dvh;
+  min-width: 0;
+  gap: 1px;
+  background: #f0f0f0;
+}
+
+.app-shell.with-right-sidebar {
+  grid-template-columns: 250px minmax(0, 1fr) var(--right-sidebar-width, 420px);
+}
+
+.sidebar {
+  background: white;
+  border-right: 1px solid #e0e0e0;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.left-sidebar {
+  grid-column: 1;
+  grid-row: 1 / 3;
+}
+
+.right-sidebar {
+  grid-column: 3;
+  grid-row: 1 / 3;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  border-left: 1px solid #e0e0e0;
+  border-right: none;
+  position: relative;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.right-sidebar.collapsed {
+  width: 56px;
+  padding: 0;
+  overflow: hidden;
+  background: #f8fbf8;
+}
+
+.right-sidebar.collapsed .reference-card {
+  display: none;
+}
+
+.right-sidebar.collapsed::after {
+  content: "REF";
+  position: absolute;
+  top: 72px;
+  left: 0;
+  right: 0;
+  color: #56705a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-align: center;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  pointer-events: none;
+}
+
+.sidebar-toggle {
+  position: absolute;
+  top: 18px;
+  left: -18px;
+  width: 36px;
+  height: 36px;
+  background: white;
+  border: 1px solid #cfdacf;
+  border-radius: 999px;
+  color: #2e7d32;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  box-shadow: 0 4px 14px rgba(34, 68, 40, 0.18);
+  transition: all 0.2s ease;
+}
+
+.sidebar-toggle:hover {
+  background: #f3fbf4;
+  border-color: #4CAF50;
+  box-shadow: 0 6px 18px rgba(34, 68, 40, 0.24);
+}
+
+.sidebar-toggle:focus-visible {
+  outline: 3px solid rgba(76, 175, 80, 0.24);
+  outline-offset: 2px;
+}
+
+.sidebar-toggle-icon {
+  width: 9px;
+  height: 9px;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+.right-sidebar.collapsed .sidebar-toggle {
+  left: 10px;
+}
+
+.right-sidebar.collapsed .sidebar-toggle-icon {
+  transform: rotate(225deg);
+}
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -6px;
+  z-index: 12;
+  display: flex;
+  width: 12px;
+  align-items: center;
+  justify-content: center;
+  cursor: col-resize;
+}
+
+.resize-handle::before {
+  content: "";
+  width: 4px;
+  height: 56px;
+  border-radius: 999px;
+  background: #b7c8b9;
+  box-shadow: 0 0 0 1px white, 0 2px 8px rgba(33, 70, 42, 0.16);
+}
+
+.resize-handle:hover::before,
+.resize-handle:active::before {
+  width: 5px;
+  background: #4CAF50;
+}
+
+.main-panel {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  background: white;
+}
+
+.mobile-action-bar {
+  display: none;
+}
+
+.mobile-action-row {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mobile-action-row .btn,
+.mobile-action-row .select {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.mobile-history-overlay,
+.mobile-history-drawer {
+  display: none;
+}
+
+.mobile-history-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.mobile-history-count {
+  min-width: 22px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.brand-panel {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.brand-mark {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.brand-panel h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.brand-panel p {
+  margin: 4px 0 0 0;
+  font-size: 12px;
+  color: #666;
+}
+
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.rag-upload-status {
+  color: #56705a;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.rag-control-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px 0;
+  border-top: 1px solid #e6ece6;
+  border-bottom: 1px solid #e6ece6;
+}
+
+.rag-control-panel .section-title {
+  margin-bottom: 0;
+}
+
+.rag-control-panel .btn {
+  width: 100%;
+}
+
+.session-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #566056;
+  font-size: 12px;
+}
+
+.session-logout {
+  padding: 4px 8px;
+  border: 1px solid #d7dfd8;
+  border-radius: 4px;
+  background: white;
+  color: #374151;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.session-logout:hover {
+  background: #f2f6f2;
+}
+
+.select,
+.btn {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.btn-primary {
+  background: #4CAF50;
+  color: white;
+  border: none;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #45a049;
+}
+
+.welcome-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.welcome-card {
+  text-align: center;
+}
+
+.hero-badge {
+  font-size: 48px;
+  font-weight: bold;
+  color: #4CAF50;
+  margin-bottom: 20px;
+}
+
+.messages-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.composer-panel {
+  border-top: 1px solid #e0e0e0;
+  padding: 16px;
+  background: white;
+}
+
+.composer-controls {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.switch input {
+  cursor: pointer;
+}
+
+.control-sliders {
+  display: flex;
+  gap: 16px;
+}
+
+.range-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.range-group input {
+  width: 80px;
+}
+
+.pending-image-tag {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  max-width: min(520px, 100%);
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 1px solid #d8ead8;
+  border-radius: 10px;
+  background: #f6fff6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.pending-image-thumb {
+  width: 54px;
+  height: 54px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #d7d7d7;
+}
+
+.pending-image-meta {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pending-image-title {
+  max-width: 340px;
+  overflow: hidden;
+  color: #333;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pending-image-hint {
+  color: #666;
+  font-size: 12px;
+}
+
+.pending-image-remove {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: #e7e7e7;
+  color: #333;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.pending-image-remove:hover:not(:disabled) {
+  background: #d7d7d7;
+}
+
+.composer-input-area {
+  display: flex;
+  gap: 8px;
+}
+
+.composer-input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: inherit;
+  resize: none;
+}
+
+.send-btn {
+  padding: 8px 16px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.send-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.btn-icon {
+  padding: 8px 12px;
+  background: #f0f0f0;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background: #e0e0e0;
+}
+
+.btn-icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.reference-card {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  height: 100%;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.reference-card::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 24px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), white);
+}
+
+.section-title {
+  font-weight: 600;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.reference-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: -20px -20px 14px;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid #e7ece7;
+  background: white;
+}
+
+.reference-header .section-title {
+  margin-bottom: 4px;
+  font-size: 16px;
+}
+
+.reference-summary {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.reference-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0 8px 26px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #4CAF50 #e8f0e8;
+  overscroll-behavior: contain;
+}
+
+.reference-scroll::-webkit-scrollbar {
+  width: 12px;
+}
+
+.reference-scroll::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: #e8f0e8;
+}
+
+.reference-scroll::-webkit-scrollbar-thumb {
+  min-height: 44px;
+  border: 3px solid #e8f0e8;
+  border-radius: 999px;
+  background: #4CAF50;
+}
+
+.reference-scroll::-webkit-scrollbar-thumb:hover {
+  background: #2f8a35;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.status-pill {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+}
+
+.status-pill.ok {
+  background: #c8e6c9;
+  color: #2e7d32;
+}
+
+.status-pill.bad {
+  background: #ffcdd2;
+  color: #c62828;
+}
+
+.empty-state {
+  color: #999;
+  font-size: 12px;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.evidence-item {
+  padding: 12px;
+  border: 1px solid #dfe7df;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  background: #fbfdfb;
+  font-size: 13px;
+}
+
+.evidence-head {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #244428;
+}
+
+.evidence-text {
+  margin-bottom: 8px;
+  color: #333;
+  line-height: 1.58;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.evidence-source {
+  padding-top: 8px;
+  border-top: 1px solid #edf2ed;
+  font-size: 12px;
+  color: #6b7280;
+  word-break: break-all;
+}
+
+.evidence-toggle {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border: 1px solid #cfd8cf;
+  border-radius: 6px;
+  background: white;
+  color: #2e7d32;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.toast-stack {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 1000;
+}
+
+.toast {
+  padding: 12px 16px;
+  border-radius: 4px;
+  color: white;
+  font-size: 14px;
+  animation: slideIn 0.3s ease-out;
+}
+
+.toast.info {
+  background: #2196F3;
+}
+
+.toast.success {
+  background: #4CAF50;
+}
+
+.toast.warning {
+  background: #FF9800;
+}
+
+.toast.error {
+  background: #f44336;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* 裁剪模态框样式 */
+.cropper-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.cropper-modal {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.cropper-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.cropper-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #999;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+.cropper-container {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: min(64vh, 640px);
+  min-height: 360px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  padding: 0;
+}
+
+.cropper-container img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.cropper-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 16px 20px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.btn-secondary {
+  background: #f0f0f0;
+  color: #333;
+  border: 1px solid #ddd;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #e0e0e0;
+}
+
+/* Markdown 内容样式 - 使用 :deep() 确保 v-html 内容正常渲染 */
+.message-content {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.message-bubble.user .message-content,
+.message-bubble.user .message-content :deep(*) {
+  color: white;
+}
+
+.message-content :deep(p) {
+  margin: 0 0 8px 0;
+  line-height: 1.6;
+  color: #333;
+}
+
+.message-content :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.message-content :deep(ul),
+.message-content :deep(ol) {
+  margin: 8px 0;
+  padding-left: 22px;
+  color: #333;
+}
+
+.message-content :deep(li) {
+  margin-bottom: 6px;
+  line-height: 1.6;
+  color: #333;
+}
+
+.message-content :deep(h1),
+.message-content :deep(h2),
+.message-content :deep(h3),
+.message-content :deep(h4),
+.message-content :deep(h5),
+.message-content :deep(h6) {
+  margin: 12px 0 8px;
+  line-height: 1.4;
+  color: #333;
+  font-weight: 600;
+}
+
+.message-content :deep(h1) {
+  font-size: 18px;
+}
+
+.message-content :deep(h2) {
+  font-size: 16px;
+}
+
+.message-content :deep(h3) {
+  font-size: 14px;
+}
+
+.message-content :deep(.markdown-table-wrap) {
+  width: 100%;
+  max-width: 100%;
+  margin: 10px 0;
+  position: relative;
+}
+
+.message-content :deep(.markdown-table-scroll) {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #4CAF50 #e2e8e4;
+}
+
+.message-content :deep(.markdown-table-scroll::-webkit-scrollbar) {
+  height: 12px;
+}
+
+.message-content :deep(.markdown-table-scroll::-webkit-scrollbar-track) {
+  border-radius: 999px;
+  background: #e2e8e4;
+}
+
+.message-content :deep(.markdown-table-scroll::-webkit-scrollbar-thumb) {
+  min-width: 44px;
+  border: 3px solid #e2e8e4;
+  border-radius: 999px;
+  background: #4CAF50;
+}
+
+.message-content :deep(.markdown-table-slider-row) {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  margin-top: 2px;
+  padding: 3px 4px 0;
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.message-content :deep(.markdown-table-wrap.is-scrollable .markdown-table-slider-row) {
+  display: flex;
+}
+
+.message-content :deep(.table-scroll-arrow) {
+  display: inline-flex;
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.message-content :deep(.table-scroll-arrow:disabled) {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.message-content :deep(.markdown-table-range) {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 28px;
+  margin: 0;
+  accent-color: #4CAF50;
+  cursor: pointer;
+  touch-action: pan-x;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  pointer-events: auto;
+}
+
+.message-content :deep(.markdown-table-range:disabled) {
+  opacity: 0.25;
+}
+
+.message-content :deep(.markdown-table-range::-webkit-slider-runnable-track) {
+  height: 8px;
+  border-radius: 999px;
+  background: #d9e6db;
+}
+
+.message-content :deep(.markdown-table-range::-webkit-slider-thumb) {
+  width: 24px;
+  height: 24px;
+  margin-top: -8px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #2e7d32;
+  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.28);
+  -webkit-appearance: none;
+}
+
+.message-content :deep(.markdown-table-range::-moz-range-track) {
+  height: 8px;
+  border-radius: 999px;
+  background: #d9e6db;
+}
+
+.message-content :deep(.markdown-table-range::-moz-range-thumb) {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #2e7d32;
+  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.28);
+}
+
+.message-content :deep(table) {
+  width: max-content;
+  min-width: min(640px, 100%);
+  max-width: none;
+  border-collapse: collapse;
+  font-size: 13px;
+  table-layout: auto;
+}
+
+.message-content :deep(th),
+.message-content :deep(td) {
+  border: 1px solid #ddd;
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  min-width: 120px;
+  max-width: 340px;
+}
+
+.message-content :deep(th) {
+  background: #f3f4f6;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.message-content :deep(tbody tr:nth-child(even)) {
+  background: #f9fafb;
+}
+
+.message-content :deep(tbody tr:hover) {
+  background: #f3f4f6;
+}
+
+.message-content :deep(pre) {
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 10px 0;
+  font-size: 12px;
+}
+
+.message-content :deep(code) {
+  background: rgba(0, 0, 0, 0.08);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 12px;
+}
+
+.message-content :deep(pre code) {
+  background: transparent;
+  padding: 0;
+}
+
+.message-content :deep(blockquote) {
+  border-left: 4px solid #0ea5e9;
+  padding-left: 12px;
+  margin: 8px 0;
+  color: #666;
+  font-style: italic;
+}
+
+.message-content :deep(strong) {
+  font-weight: 600;
+  color: #333;
+}
+
+.message-content :deep(em) {
+  font-style: italic;
+}
+
+.message-content :deep(a) {
+  color: #0ea5e9;
+  text-decoration: none;
+}
+
+.message-content :deep(a:hover) {
+  text-decoration: underline;
+}
+
+/* 消息气泡改进 */
+.message-bubble {
+  max-width: 65%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  word-wrap: break-word;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.message-bubble.user {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  border-radius: 12px 4px 12px 12px;
+}
+
+.message-bubble.assistant {
+  background: #f5f5f5;
+  color: #333;
+  border-radius: 4px 12px 12px 12px;
+  border: 1px solid #e0e0e0;
+}
+
+.message-bubble.assistant.has-table {
+  width: fit-content;
+  max-width: min(1100px, calc(100% - 46px));
+}
+
+.message-image {
+  max-width: 100%;
+  max-height: 350px;
+  border-radius: 8px;
+  display: block;
+  object-fit: contain;
+  background: white;
+  padding: 4px;
+  border: 1px solid #ddd;
+}
+
+.message-bubble.user .message-image {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 2px;
+}
+
+/* 消息行改进 */
+.message-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  align-items: flex-start;
+}
+
+.message-row.user {
+  justify-content: flex-end;
+}
+
+.message-row.user .avatar {
+  order: 2;
+}
+
+.message-row.user .message-bubble {
+  order: 1;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #4CAF50;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.message-row.assistant .avatar {
+  background: #2196F3;
+}
+
+/* 历史列表样式 */
+.history-panel {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+  max-height: calc(100vh - 400px);
+  overflow-y: auto;
+}
+
+.history-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.history-item:hover {
+  background: #f0f0f0;
+  border-color: #4CAF50;
+}
+
+.history-item.active {
+  background: #e8f5e9;
+  border-color: #4CAF50;
+  font-weight: 600;
+}
+
+.history-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.history-meta {
+  font-size: 11px;
+  color: #999;
+}
+
+.history-delete-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #999;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.history-delete-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+@media (max-width: 900px) {
+  .app-shell,
+  .app-shell.with-right-sidebar {
+    display: block;
+    min-height: 100vh;
+    min-height: 100dvh;
+    height: auto;
+    width: 100vw;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .left-sidebar {
+    display: none;
+  }
+
+  .brand-panel {
+    margin-bottom: 10px;
+  }
+
+  .brand-mark {
+    width: 36px;
+    height: 36px;
+  }
+
+  .brand-panel h1 {
+    font-size: 16px;
+  }
+
+  .brand-panel p {
+    font-size: 11px;
+  }
+
+  .toolbar {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .toolbar .select,
+  .toolbar .btn {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .toolbar .rag-upload-status {
+    flex: 1 0 100%;
+  }
+
+  .toolbar .session-row {
+    flex: 1 0 100%;
+  }
+
+  .rag-control-panel {
+    margin-top: 8px;
+    padding: 8px 0;
+  }
+
+  .history-panel {
+    display: none;
+  }
+
+  .right-sidebar {
+    display: none;
+  }
+
+  .main-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
+    height: auto;
+    width: 100%;
+    overflow: visible;
+  }
+
+  .welcome-panel {
+    padding: 20px;
+  }
+
+  .hero-badge {
+    font-size: 32px;
+  }
+
+  .messages-panel {
+    flex: 1 0 auto;
+    min-height: calc(100dvh - 84px);
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior-y: auto;
+    touch-action: auto;
+    padding: 12px;
+    padding-bottom: calc(128px + env(safe-area-inset-bottom));
+    gap: 8px;
+  }
+
+  .message-row {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .avatar {
+    width: 30px;
+    height: 30px;
+    font-size: 11px;
+  }
+
+  .message-bubble {
+    max-width: calc(100% - 42px);
+    padding: 10px 12px;
+    border-radius: 10px;
+    overflow: visible;
+    touch-action: auto;
+  }
+
+  .message-image {
+    max-height: 260px;
+  }
+
+  .composer-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    width: 100%;
+    padding: 10px 12px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    pointer-events: auto;
+    box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  .composer-controls {
+    display: none;
+  }
+
+  .control-sliders {
+    display: none;
+  }
+
+  .composer-input-area {
+    display: flex;
+    width: 100%;
+    align-items: flex-end;
+    gap: 8px;
+    pointer-events: auto;
+  }
+
+  .composer-input-area button,
+  .composer-input-area textarea {
+    position: relative;
+    z-index: 11;
+    pointer-events: auto;
+    touch-action: manipulation;
+  }
+
+  .composer-input {
+    width: auto;
+    min-width: 0;
+    min-height: 48px;
+    max-height: 140px;
+    padding: 12px;
+    line-height: 1.4;
+    font-size: 16px;
+    border-radius: 8px;
+    overflow-y: auto;
+    -webkit-appearance: none;
+  }
+
+  .send-btn {
+    width: 76px !important;
+    max-width: 76px;
+    min-width: 76px;
+    min-height: 48px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 15px;
+    flex: 0 0 76px;
+  }
+
+  .btn-icon {
+    width: 48px;
+    min-width: 48px;
+    height: 48px;
+    min-height: 48px;
+    flex: 0 0 48px;
+    padding: 0;
+  }
+
+  .welcome-panel {
+    padding-bottom: calc(128px + env(safe-area-inset-bottom));
+  }
+
+  .toast-stack {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .toast {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .cropper-modal {
+    width: 96vw;
+    max-height: 88vh;
+  }
+
+  .cropper-container {
+    height: min(60vh, 520px);
+    min-height: 280px;
+    padding: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .login-shell {
+    padding: 14px;
+  }
+
+  .login-panel {
+    padding: 20px;
+  }
+
+  .left-sidebar {
+    padding: 8px 10px;
+  }
+
+  .brand-panel {
+    align-items: center;
+  }
+
+  .toolbar {
+    gap: 6px;
+  }
+
+  .toolbar .select {
+    flex: 1 0 100%;
+  }
+
+  .toolbar .btn {
+    flex: 1 1 calc(50% - 6px);
+    min-height: 36px;
+    padding: 8px 10px;
+    font-size: 13px;
+    white-space: normal;
+  }
+
+  .messages-panel {
+    padding: 10px;
+  }
+
+  .message-bubble {
+    max-width: calc(100% - 38px);
+  }
+
+  .pending-image-tag {
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .pending-image-title {
+    max-width: calc(100vw - 130px);
+  }
+
+  .composer-input-area {
+    gap: 6px;
+  }
+
+  .btn-icon {
+    width: 48px;
+    min-width: 48px;
+    height: 48px;
+    min-height: 48px;
+    padding: 0;
+  }
+
+  .send-btn {
+    width: 72px !important;
+    min-width: 72px;
+    max-width: 72px;
+    min-height: 48px;
+    padding: 10px 12px;
+    flex-basis: 72px;
+  }
+}
+
+/* Inline references for assistant answers */
+.message-evidence-panel {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #dfe7df;
+  border-radius: 10px;
+  background: #ffffff;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.message-evidence-panel:hover {
+  border-color: #9fc7a3;
+  background: #fbfefb;
+  box-shadow: 0 2px 10px rgba(46, 125, 50, 0.1);
+}
+
+.message-evidence-panel:focus-visible {
+  outline: 3px solid rgba(76, 175, 80, 0.22);
+  outline-offset: 2px;
+}
+
+.message-evidence-panel.active {
+  border-color: #4CAF50;
+  box-shadow: inset 3px 0 0 #4CAF50, 0 2px 10px rgba(46, 125, 50, 0.12);
+}
+
+.message-evidence-panel.empty,
+.message-evidence-panel:disabled {
+  cursor: default;
+  opacity: 0.82;
+}
+
+.message-evidence-panel.empty:hover,
+.message-evidence-panel:disabled:hover {
+  border-color: #dfe7df;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.message-evidence-empty {
+  padding-top: 2px;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.message-evidence-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: #244428;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.message-evidence-action {
+  display: inline-flex;
+  min-width: 24px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.message-evidence-item {
+  padding: 8px 0;
+  border-top: 1px solid #edf2ed;
+  font-size: 12px;
+}
+
+.message-evidence-item:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.message-evidence-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.message-evidence-text {
+  color: #374151;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.message-evidence-source {
+  margin-top: 4px;
+  color: #6b7280;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+/* 手机横屏：显示左右两侧栏；手机竖屏仍只保留对话主体 */
+@media (max-width: 900px) and (orientation: landscape) {
+  .app-shell,
+  .app-shell.with-right-sidebar {
+    display: grid !important;
+    grid-template-columns: minmax(150px, 20vw) minmax(0, 1fr) minmax(210px, 26vw) !important;
+    grid-template-rows: 1fr !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    width: 100vw !important;
+    overflow: hidden !important;
+  }
+
+  .left-sidebar {
+    display: block !important;
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    padding: 10px !important;
+    overflow-y: auto !important;
+  }
+
+  .right-sidebar,
+  .right-sidebar.collapsed {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+    width: auto !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    padding: 10px !important;
+    overflow: hidden !important;
+    position: relative !important;
+  }
+
+  .right-sidebar.collapsed .reference-card {
+    display: flex !important;
+  }
+
+  .sidebar-toggle,
+  .resize-handle {
+    display: none !important;
+  }
+
+  .main-panel {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    display: flex !important;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .messages-panel {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow-y: auto !important;
+    padding: 10px !important;
+    padding-bottom: 10px !important;
+  }
+
+  .composer-panel {
+    position: static !important;
+    width: auto !important;
+    padding: 8px !important;
+    box-shadow: none !important;
+  }
+
+  .composer-controls,
+  .control-sliders {
+    display: none !important;
+  }
+
+  .composer-input {
+    min-height: 44px !important;
+    max-height: 88px !important;
+    font-size: 16px !important;
+  }
+
+  .send-btn {
+    width: 68px !important;
+    min-width: 68px !important;
+    max-width: 68px !important;
+    min-height: 44px !important;
+    padding: 8px 10px !important;
+  }
+
+  .btn-icon {
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .message-bubble {
+    max-width: calc(100% - 38px) !important;
+  }
+
+  .brand-panel {
+    margin-bottom: 8px !important;
+  }
+
+  .history-panel {
+    display: block !important;
+    max-height: calc(100dvh - 220px) !important;
+    overflow-y: auto !important;
+  }
+
+  .rag-control-panel {
+    display: none !important;
+  }
+
+  .reference-header {
+    position: static !important;
+    margin: 0 0 10px !important;
+    padding: 0 0 10px !important;
+  }
+
+  .reference-scroll {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    padding-right: 6px !important;
+  }
+
+  .evidence-item {
+    padding: 8px !important;
+    font-size: 12px !important;
+  }
+}
+
+@media (max-width: 900px) and (orientation: portrait) {
+  .left-sidebar,
+  .right-sidebar {
+    display: none !important;
+  }
+
+  .app-shell,
+  .app-shell.with-right-sidebar {
+    display: block !important;
+  }
+
+  .main-panel {
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 767px) {
+  :global(html),
+  :global(body),
+  :global(#app) {
+    min-height: 100%;
+    height: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  :global(body) {
+    margin: 0;
+    touch-action: auto;
+    overscroll-behavior-y: auto;
+  }
+
+  .app-shell,
+  .app-shell.with-right-sidebar {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 100vh !important;
+    min-height: 100svh !important;
+    min-height: 100dvh !important;
+    height: auto !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    background: white;
+    touch-action: auto;
+  }
+
+  .left-sidebar,
+  .right-sidebar,
+  .right-sidebar.collapsed {
+    display: none !important;
+  }
+
+  .main-panel {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 100vh !important;
+    min-height: 100svh !important;
+    min-height: 100dvh !important;
+    height: auto !important;
+    overflow: visible !important;
+    touch-action: auto;
+  }
+
+  .mobile-action-bar {
+    display: flex;
+    position: sticky;
+    top: 0;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    padding: 10px;
+    border-bottom: 1px solid #e6ece6;
+    background: white;
+    z-index: 70;
+    pointer-events: auto;
+    box-shadow: 0 1px 8px rgba(15, 23, 42, 0.06);
+  }
+
+  .mobile-action-row {
+    width: 100%;
+  }
+
+  .mobile-action-row .btn,
+  .mobile-action-row .select {
+    position: relative;
+    z-index: 2;
+    min-height: 44px;
+    font-size: 16px;
+    pointer-events: auto;
+    touch-action: manipulation;
+  }
+
+  .mobile-rag-status {
+    max-height: 48px;
+    overflow-y: auto;
+  }
+
+  .mobile-history-overlay {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    background: rgba(17, 24, 39, 0.34);
+    touch-action: none;
+  }
+
+  .mobile-history-drawer {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 130;
+    display: flex !important;
+    width: min(86vw, 360px);
+    max-width: 100%;
+    flex-direction: column;
+    padding: 14px;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+    border-right: 1px solid #dfe7df;
+    background: white;
+    box-shadow: 8px 0 24px rgba(15, 23, 42, 0.18);
+    overflow: hidden;
+    touch-action: pan-y pinch-zoom;
+  }
+
+  .mobile-history-header {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #edf2ed;
+  }
+
+  .mobile-history-header .section-title {
+    margin-bottom: 4px;
+  }
+
+  .mobile-history-subtitle {
+    color: #6b7280;
+    font-size: 12px;
+  }
+
+  .mobile-history-close {
+    display: flex;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #d7dfd8;
+    border-radius: 8px;
+    background: #f8faf8;
+    color: #374151;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: 700;
+    touch-action: manipulation;
+  }
+
+  .mobile-history-list {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 12px 2px 4px 0;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y pinch-zoom;
+  }
+
+  .mobile-history-list .history-item {
+    min-height: 56px;
+    margin-bottom: 10px;
+  }
+
+  .mobile-history-list .history-delete-btn {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  .welcome-panel {
+    min-height: calc(100svh - 180px) !important;
+    padding: 18px 14px !important;
+    padding-bottom: calc(112px + env(safe-area-inset-bottom)) !important;
+    overflow: visible !important;
+  }
+
+  .messages-panel {
+    display: flex !important;
+    flex: none !important;
+    min-height: auto !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+    overflow-x: hidden !important;
+    padding: 12px !important;
+    padding-bottom: calc(124px + env(safe-area-inset-bottom)) !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: auto;
+    touch-action: auto !important;
+  }
+
+  .messages-panel .message-row,
+  .messages-panel .message-bubble,
+  .messages-panel .message-content,
+  .messages-panel .message-evidence-panel {
+    touch-action: auto !important;
+  }
+
+  .message-row {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .message-bubble,
+  .message-bubble.assistant.has-table {
+    width: auto !important;
+    max-width: calc(100% - 38px) !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+  }
+
+  .message-content {
+    max-width: 100%;
+    min-width: 0;
+    overflow-wrap: break-word;
+  }
+
+  .message-content :deep(.markdown-table-scroll) {
+    max-width: 100%;
+    overflow-x: auto !important;
+    padding-bottom: 10px;
+    touch-action: pan-x pan-y !important;
+  }
+
+  .message-content :deep(table) {
+    min-width: 680px;
+  }
+
+  .message-content :deep(th),
+  .message-content :deep(td) {
+    min-width: 120px;
+    max-width: 280px;
+  }
+
+  .message-content :deep(.markdown-table-slider-row) {
+    min-height: 48px;
+    gap: 10px;
+    padding-top: 4px;
+  }
+
+  .message-content :deep(.table-scroll-arrow) {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    font-size: 22px;
+  }
+
+  .message-content :deep(.markdown-table-range) {
+    height: 44px;
+  }
+
+  .message-content :deep(.markdown-table-range::-webkit-slider-runnable-track) {
+    height: 10px;
+  }
+
+  .message-content :deep(.markdown-table-range::-webkit-slider-thumb) {
+    width: 28px;
+    height: 28px;
+    margin-top: -9px;
+  }
+
+  .composer-panel {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    padding: 8px 10px !important;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom)) !important;
+    border-top: 1px solid #e2e8e2 !important;
+    background: white !important;
+    box-shadow: 0 -6px 18px rgba(15, 23, 42, 0.12) !important;
+    pointer-events: auto !important;
+    z-index: 90 !important;
+    touch-action: manipulation;
+  }
+
+  .composer-controls,
+  .control-sliders {
+    display: none !important;
+  }
+
+  .composer-input-area {
+    display: flex !important;
+    width: 100%;
+    min-width: 0;
+    align-items: flex-end;
+    gap: 8px;
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 2;
+  }
+
+  .composer-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 44px !important;
+    max-height: 132px !important;
+    padding: 10px 12px !important;
+    font-size: 16px !important;
+    line-height: 1.4;
+    overflow-y: auto;
+    -webkit-appearance: none;
+    touch-action: auto !important;
+    pointer-events: auto !important;
+  }
+
+  .send-btn {
+    flex: 0 0 72px !important;
+    width: 72px !important;
+    min-width: 72px !important;
+    max-width: 72px !important;
+    min-height: 44px !important;
+    padding: 8px 10px !important;
+    font-size: 15px !important;
+    pointer-events: auto !important;
+    touch-action: manipulation;
+  }
+
+  .btn-icon {
+    flex: 0 0 44px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    padding: 0 !important;
+    pointer-events: auto !important;
+    touch-action: manipulation;
+  }
+
+  .toast-stack {
+    left: 10px !important;
+    right: 10px !important;
+    bottom: calc(70px + env(safe-area-inset-bottom)) !important;
+    z-index: 40 !important;
+  }
+}
+
+</style>
+
+<style>
+.mobile-table-floating-controls {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-table-floating-controls {
+    position: fixed;
+    left: 50%;
+    bottom: calc(118px + env(safe-area-inset-bottom));
+    z-index: 2147483647;
+    display: flex;
+    gap: 14px;
+    transform: translateX(-50%);
+    pointer-events: auto;
+  }
+
+  .mobile-table-float-btn {
+    width: 54px;
+    min-width: 54px;
+    height: 54px;
+    min-height: 54px;
+    border: 1px solid rgba(46, 125, 50, 0.28);
+    border-radius: 50%;
+    background: #2e7d32;
+    color: #ffffff;
+    box-shadow: 0 8px 22px rgba(46, 125, 50, 0.28);
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 46px;
+    text-align: center;
+    cursor: pointer;
+    pointer-events: auto;
+    touch-action: manipulation;
+    appearance: none;
+    -webkit-appearance: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .mobile-table-float-btn:active {
+    transform: scale(0.94);
+    background: #256b2a;
+  }
+}
+</style>
+
+<style>
+/* ===== custom mobile table dragbar final fix ===== */
+.message-content :deep(.markdown-table-wrap) {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow: visible;
+}
+
+.message-content :deep(.markdown-table-scroll) {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto !important;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+}
+
+.message-content :deep(.markdown-table-slider-row) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 2px 2px;
+  position: relative;
+  z-index: 50;
+  pointer-events: auto;
+}
+
+.message-content :deep(.markdown-table-dragbar) {
+  flex: 1 1 auto;
+  height: 34px;
+  min-width: 80px;
+  position: relative;
+  border-radius: 999px;
+  background: #dbeee0;
+  box-shadow: inset 0 0 0 1px rgba(46, 125, 50, 0.14);
+  cursor: pointer;
+  pointer-events: auto !important;
+  touch-action: none !important;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.message-content :deep(.markdown-table-dragbar.is-disabled) {
+  opacity: 0.35;
+}
+
+.message-content :deep(.markdown-table-dragthumb) {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  height: 26px;
+  min-width: 40px;
+  border-radius: 999px;
+  background: #2e7d32;
+  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.32);
+  pointer-events: none;
+  transform: translateX(0);
+}
+
+.message-content :deep(.table-scroll-arrow) {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 999px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-size: 24px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
+  position: relative;
+  z-index: 60;
+}
+
+.message-content :deep(.table-scroll-arrow:disabled) {
+  opacity: 0.38;
+}
+
+@media (max-width: 768px) {
+  .message-content :deep(.markdown-table-wrap) {
+    z-index: 30 !important;
+    pointer-events: auto !important;
+  }
+
+  .message-content :deep(.markdown-table-scroll) {
+    touch-action: pan-x !important;
+    pointer-events: auto !important;
+    padding-bottom: 8px !important;
+  }
+
+  .message-content :deep(table) {
+    min-width: 680px !important;
+    width: max-content !important;
+  }
+
+  .message-content :deep(.markdown-table-slider-row) {
+    min-height: 56px !important;
+    z-index: 999 !important;
+    touch-action: none !important;
+  }
+
+  .message-content :deep(.markdown-table-dragbar) {
+    height: 42px !important;
+    z-index: 1000 !important;
+  }
+
+  .message-content :deep(.markdown-table-dragthumb) {
+    top: 5px !important;
+    height: 32px !important;
+    min-width: 48px !important;
+  }
+
+  .message-content :deep(.table-scroll-arrow) {
+    width: 48px !important;
+    min-width: 48px !important;
+    height: 48px !important;
+    z-index: 1001 !important;
+  }
+}
+</style>
+
+<style>
+/* ===== force mobile markdown table, no card mode ===== */
+@media (max-width: 768px) {
+  .message-content :deep(.markdown-table-wrap) {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    margin: 12px 0 !important;
+    padding: 0 0 8px 0 !important;
+    position: relative !important;
+    z-index: 30 !important;
+    pointer-events: auto !important;
+  }
+
+  .message-content :deep(.markdown-table-scroll) {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x !important;
+    overscroll-behavior-x: contain !important;
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 31 !important;
+    padding-bottom: 8px !important;
+  }
+
+  .message-content :deep(.markdown-table-scroll table) {
+    display: table !important;
+    width: max-content !important;
+    min-width: 760px !important;
+    max-width: none !important;
+    border-collapse: collapse !important;
+    table-layout: auto !important;
+    background: #ffffff !important;
+  }
+
+  .message-content :deep(.markdown-table-scroll thead) {
+    display: table-header-group !important;
+  }
+
+  .message-content :deep(.markdown-table-scroll tbody) {
+    display: table-row-group !important;
+  }
+
+  .message-content :deep(.markdown-table-scroll tr) {
+    display: table-row !important;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  .message-content :deep(.markdown-table-scroll th),
+  .message-content :deep(.markdown-table-scroll td) {
+    display: table-cell !important;
+    width: auto !important;
+    min-width: 120px !important;
+    max-width: 260px !important;
+    padding: 8px 10px !important;
+    border: 1px solid #dcebdd !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    line-height: 1.5 !important;
+    text-align: left !important;
+    vertical-align: top !important;
+  }
+
+  .message-content :deep(.markdown-table-scroll th) {
+    font-weight: 700 !important;
+    background: #eef7ef !important;
+    color: #1b5e20 !important;
+  }
+
+  .message-content :deep(.markdown-table-scroll td::before),
+  .message-content :deep(.markdown-table-scroll th::before) {
+    content: none !important;
+    display: none !important;
+  }
+
+  .message-content :deep(.markdown-table-slider-row) {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-height: 48px !important;
+    position: relative !important;
+    z-index: 50 !important;
+    pointer-events: auto !important;
+  }
+
+  .message-content :deep(.markdown-table-dragbar),
+  .message-content :deep(.markdown-table-range) {
+    pointer-events: auto !important;
+    touch-action: none !important;
+  }
+
+  .message-content :deep(.table-scroll-arrow) {
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    position: relative !important;
+    z-index: 60 !important;
+  }
+}
+</style>
+
+<style>
+/* ===== GLOBAL mobile table scroll override, no :deep ===== */
+@media (max-width: 768px) {
+  .message-content .markdown-table-wrap,
+  .assistant-message .markdown-table-wrap,
+  .message-bubble .markdown-table-wrap,
+  .chat-message .markdown-table-wrap {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    position: relative !important;
+    pointer-events: auto !important;
+    touch-action: auto !important;
+  }
+
+  .message-content .markdown-table-scroll,
+  .assistant-message .markdown-table-scroll,
+  .message-bubble .markdown-table-scroll,
+  .chat-message .markdown-table-scroll {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: scroll !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x !important;
+    overscroll-behavior-x: contain !important;
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 9999 !important;
+    padding-bottom: 10px !important;
+  }
+
+  .message-content .markdown-table-scroll table,
+  .assistant-message .markdown-table-scroll table,
+  .message-bubble .markdown-table-scroll table,
+  .chat-message .markdown-table-scroll table {
+    display: table !important;
+    width: 920px !important;
+    min-width: 920px !important;
+    max-width: none !important;
+    table-layout: auto !important;
+    border-collapse: collapse !important;
+  }
+
+  .message-content .markdown-table-scroll thead,
+  .assistant-message .markdown-table-scroll thead,
+  .message-bubble .markdown-table-scroll thead,
+  .chat-message .markdown-table-scroll thead {
+    display: table-header-group !important;
+  }
+
+  .message-content .markdown-table-scroll tbody,
+  .assistant-message .markdown-table-scroll tbody,
+  .message-bubble .markdown-table-scroll tbody,
+  .chat-message .markdown-table-scroll tbody {
+    display: table-row-group !important;
+  }
+
+  .message-content .markdown-table-scroll tr,
+  .assistant-message .markdown-table-scroll tr,
+  .message-bubble .markdown-table-scroll tr,
+  .chat-message .markdown-table-scroll tr {
+    display: table-row !important;
+  }
+
+  .message-content .markdown-table-scroll th,
+  .message-content .markdown-table-scroll td,
+  .assistant-message .markdown-table-scroll th,
+  .assistant-message .markdown-table-scroll td,
+  .message-bubble .markdown-table-scroll th,
+  .message-bubble .markdown-table-scroll td,
+  .chat-message .markdown-table-scroll th,
+  .chat-message .markdown-table-scroll td {
+    display: table-cell !important;
+    min-width: 130px !important;
+    max-width: 260px !important;
+    padding: 8px 10px !important;
+    border: 1px solid #dcebdd !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    vertical-align: top !important;
+    text-align: left !important;
+  }
+
+  .message-content .markdown-table-scroll th,
+  .assistant-message .markdown-table-scroll th,
+  .message-bubble .markdown-table-scroll th,
+  .chat-message .markdown-table-scroll th {
+    background: #eef7ef !important;
+    color: #1b5e20 !important;
+    font-weight: 700 !important;
+  }
+
+  .message-content .markdown-table-scroll td::before,
+  .assistant-message .markdown-table-scroll td::before,
+  .message-bubble .markdown-table-scroll td::before,
+  .chat-message .markdown-table-scroll td::before {
+    content: none !important;
+    display: none !important;
+  }
+}
+</style>
+
+<style>
+/* ===== final fix: mobile markdown table must be wider than viewport ===== */
+@media (max-width: 768px) {
+  .markdown-table-scroll {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x !important;
+    overscroll-behavior-x: contain !important;
+    padding-bottom: 10px !important;
+  }
+
+  .markdown-table-scroll table {
+    display: table !important;
+    width: 980px !important;
+    min-width: 980px !important;
+    max-width: none !important;
+    table-layout: auto !important;
+    border-collapse: collapse !important;
+  }
+
+  .markdown-table-scroll thead {
+    display: table-header-group !important;
+  }
+
+  .markdown-table-scroll tbody {
+    display: table-row-group !important;
+  }
+
+  .markdown-table-scroll tr {
+    display: table-row !important;
+  }
+
+  .markdown-table-scroll th,
+  .markdown-table-scroll td {
+    display: table-cell !important;
+    min-width: 140px !important;
+    max-width: 280px !important;
+    padding: 8px 10px !important;
+    border: 1px solid #dcebdd !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    vertical-align: top !important;
+    text-align: left !important;
+  }
+
+  .markdown-table-scroll th {
+    background: #eef7ef !important;
+    color: #1b5e20 !important;
+    font-weight: 700 !important;
+  }
+
+  .markdown-table-scroll td::before,
+  .markdown-table-scroll th::before {
+    content: none !important;
+    display: none !important;
+  }
+}
+</style>
+
+<style>
+/* ===== mobile table touch scroll final override ===== */
+@media (max-width: 768px) {
+  .markdown-table-scroll {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: scroll !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: auto !important;
+    overscroll-behavior-x: contain !important;
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 9999 !important;
+  }
+
+  .markdown-table-scroll table {
+    display: table !important;
+    width: 980px !important;
+    min-width: 980px !important;
+    max-width: none !important;
+    table-layout: auto !important;
+    border-collapse: collapse !important;
+  }
+
+  .markdown-table-scroll th,
+  .markdown-table-scroll td {
+    display: table-cell !important;
+    min-width: 140px !important;
+    max-width: 280px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    vertical-align: top !important;
+  }
+}
+</style>
+
+<style>
+/* ===== final stable mobile markdown table: native horizontal scroll only ===== */
+@media (max-width: 768px) {
+  .markdown-table-wrap {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    margin: 12px 0 !important;
+    padding: 0 !important;
+  }
+
+  .markdown-table-scroll {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x pan-y !important;
+    overscroll-behavior-x: contain !important;
+    padding-bottom: 12px !important;
+  }
+
+  .markdown-table-scroll table {
+    display: table !important;
+    width: 980px !important;
+    min-width: 980px !important;
+    max-width: none !important;
+    table-layout: auto !important;
+    border-collapse: collapse !important;
+  }
+
+  .markdown-table-scroll thead {
+    display: table-header-group !important;
+  }
+
+  .markdown-table-scroll tbody {
+    display: table-row-group !important;
+  }
+
+  .markdown-table-scroll tr {
+    display: table-row !important;
+  }
+
+  .markdown-table-scroll th,
+  .markdown-table-scroll td {
+    display: table-cell !important;
+    min-width: 140px !important;
+    max-width: 280px !important;
+    padding: 8px 10px !important;
+    border: 1px solid #dcebdd !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    vertical-align: top !important;
+    text-align: left !important;
+  }
+
+  .markdown-table-scroll th {
+    background: #eef7ef !important;
+    color: #1b5e20 !important;
+    font-weight: 700 !important;
+  }
+
+  .markdown-table-scroll td::before,
+  .markdown-table-scroll th::before {
+    content: none !important;
+    display: none !important;
+  }
+
+  /* 手机端先隐藏自定义滑块，避免它抢 touch 事件 */
+  .markdown-table-slider-row,
+  .markdown-table-dragbar,
+  .markdown-table-dragthumb,
+  .markdown-table-range,
+  .table-scroll-arrow {
+    display: none !important;
+  }
+}
+</style>
+
+<style>
+/* ===== final stable mobile markdown table: native horizontal scroll only ===== */
+@media (max-width: 768px) {
+  .markdown-table-wrap {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    margin: 12px 0 !important;
+    padding: 0 !important;
+  }
+
+  .markdown-table-scroll {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x !important;
+    overscroll-behavior-x: contain !important;
+    padding-bottom: 12px !important;
+  }
+
+  .markdown-table-scroll table {
+    display: table !important;
+    width: 980px !important;
+    min-width: 980px !important;
+    max-width: none !important;
+    table-layout: auto !important;
+    border-collapse: collapse !important;
+  }
+
+  .markdown-table-scroll thead {
+    display: table-header-group !important;
+  }
+
+  .markdown-table-scroll tbody {
+    display: table-row-group !important;
+  }
+
+  .markdown-table-scroll tr {
+    display: table-row !important;
+  }
+
+  .markdown-table-scroll th,
+  .markdown-table-scroll td {
+    display: table-cell !important;
+    min-width: 140px !important;
+    max-width: 280px !important;
+    padding: 8px 10px !important;
+    border: 1px solid #dcebdd !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    vertical-align: top !important;
+    text-align: left !important;
+  }
+
+  .markdown-table-scroll th {
+    background: #eef7ef !important;
+    color: #1b5e20 !important;
+    font-weight: 700 !important;
+  }
+
+  .markdown-table-scroll td::before,
+  .markdown-table-scroll th::before {
+    content: none !important;
+    display: none !important;
+  }
+
+  .markdown-table-slider-row,
+  .markdown-table-dragbar,
+  .markdown-table-dragthumb,
+  .markdown-table-range,
+  .table-scroll-arrow {
+    display: none !important;
+  }
+}
+</style>
+
+<style>
+.markdown-table-mobile-controls {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .markdown-table-mobile-controls {
+    display: flex !important;
+    gap: 8px !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    margin: 8px 0 6px 0 !important;
+    position: relative !important;
+    z-index: 10000 !important;
+    pointer-events: auto !important;
+  }
+
+  .markdown-table-mobile-btn {
+    appearance: none !important;
+    border: 1px solid #8fcf91 !important;
+    background: #eef8ef !important;
+    color: #1b5e20 !important;
+    border-radius: 999px !important;
+    padding: 7px 12px !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+  }
+
+  .markdown-table-mobile-btn:active {
+    transform: scale(0.96) !important;
+    background: #dff1e0 !important;
+  }
+
+  .markdown-table-scroll {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .markdown-table-scroll table {
+    width: 980px !important;
+    min-width: 980px !important;
+    max-width: none !important;
+  }
+
+  .markdown-table-mobile-controls {
+    width: 100% !important;
+    min-height: 54px !important;
+    justify-content: space-between !important;
+    padding: 4px 2px !important;
+  }
+
+  .markdown-table-mobile-btn {
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    min-height: 48px !important;
+    line-height: 42px !important;
+    font-size: 32px !important;
+    touch-action: manipulation !important;
+  }
+}
+</style>
+
+<style>
+/* ===== icon-only mobile table arrows ===== */
+.markdown-table-mobile-controls {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .markdown-table-mobile-controls {
+    display: flex !important;
+    gap: 6px !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    margin: 6px 0 6px 0 !important;
+    position: relative !important;
+    z-index: 2147483647 !important;
+    pointer-events: auto !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+  }
+
+  .markdown-table-mobile-btn {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 1px solid #8fcf91 !important;
+    border-radius: 50% !important;
+    background: #eef8ef !important;
+    color: #1b5e20 !important;
+    font-size: 28px !important;
+    font-weight: 700 !important;
+    line-height: 28px !important;
+    text-align: center !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    touch-action: none !important;
+    position: relative !important;
+    z-index: 2147483647 !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+  }
+
+  .markdown-table-mobile-btn:active {
+    transform: scale(0.94) !important;
+    background: #dff1e0 !important;
+  }
+
+  .markdown-table-scroll {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .markdown-table-scroll table {
+    width: 980px !important;
+    min-width: 980px !important;
+    max-width: none !important;
+  }
+}
+</style>

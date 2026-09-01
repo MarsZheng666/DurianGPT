@@ -1,0 +1,46 @@
+# ===== 密钥/环境（绝不提交）=====
+.env
+.env.remote
+.env.*
+!.env.example
+
+# ===== 模型与二进制大文件（从服务器同步，不入库）=====
+models/
+model_e5/
+best_resnet50.pth
+faiss_index.bin
+ocr_rag_index.faiss
+rag_auto/faiss_index.bin
+rag_auto/chunks_cache.json
+rag_llamaindex_storage/
+
+# ===== 运行时产物 =====
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+*.db.bak*
+backend.log
+logs/
+uploads/
+nofile/
+
+# ===== 备份与历史 =====
+*.bak
+*.bak*
+*.orig
+*.candidate
+.codex-backups/
+
+# ===== 前端构建产物 =====
+frontend-vue/node_modules/
+frontend-vue/dist/
+
+# ===== 系统/其他 =====
+.DS_Store
+durian_true_token_stream_update.zip
+.admin-credentials

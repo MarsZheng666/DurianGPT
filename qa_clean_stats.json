@@ -1,0 +1,15 @@
+{
+  "input_file": "C:\\Users\\ROG\\Desktop\\durian-training\\qa_dataset_v2.jsonl",
+  "output_file": "C:\\Users\\ROG\\Desktop\\durian-training\\qa_dataset_v2.cleaned.jsonl",
+  "removed_file": "C:\\Users\\ROG\\Desktop\\durian-training\\qa_dataset_v2.removed.jsonl",
+  "total_records": 323,
+  "kept_records": 247,
+  "removed_records": 76,
+  "details": {
+    "total": 323,
+    "bad_source_text": 26,
+    "kept": 247,
+    "bad_answer": 30,
+    "bad_question": 20
+  }
+}
