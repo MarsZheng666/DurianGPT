@@ -44,3 +44,17 @@ frontend-vue/dist/
 .DS_Store
 durian_true_token_stream_update.zip
 .admin-credentials
+
+raw/
+# rag_build 整目录默认忽略，但以下四个手工维护/唯一副本文件必须入库：
+# glossary.json(手工术语表) / translations.jsonl(651条校验译文,唯一副本) /
+# chunks.jsonl(651条泰文原文的唯一幸存副本,存于 metadata.original_text) /
+# chunks_translated.jsonl(apply 产物,与 chunks.jsonl 保持同步)
+!rag_build/
+rag_build/*
+!rag_build/glossary.json
+!rag_build/translations.jsonl
+!rag_build/chunks.jsonl
+!rag_build/chunks_translated.jsonl
+rag_eval/
+*.bak-*
