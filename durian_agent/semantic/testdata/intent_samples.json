@@ -1,0 +1,87 @@
+{
+  "_meta": {
+    "purpose": "Intent 分类测试样例（任务 #5），20 意图 × 3 条，zh/en/th/ms 混合；也是任务 #61 多语言评估集的种子",
+    "note": "language 字段为样例书写语言；rule_backstop 标记该样例可被规则兜底层确定性识别"
+  },
+  "samples": [
+    {"query": "我的榴莲树叶子发黄是什么病", "language": "zh", "intent": "disease_diagnosis"},
+    {"query": "durian leaves have yellow spots what disease is this", "language": "en", "intent": "disease_diagnosis"},
+    {"query": "ต้นทุเรียนใบเหลืองเป็นโรคอะไร", "language": "th", "intent": "disease_diagnosis"},
+
+    {"query": "树干上有虫孔是什么虫子钻的", "language": "zh", "intent": "pest_diagnosis"},
+    {"query": "what pest is boring holes in my durian trunk", "language": "en", "intent": "pest_diagnosis"},
+    {"query": "หนอนเจาะผลเป็นตัวอะไร", "language": "th", "intent": "pest_diagnosis"},
+
+    {"query": "炭疽病怎么防治", "language": "zh", "intent": "disease_control"},
+    {"query": "how to control anthracnose on durian", "language": "en", "intent": "disease_control"},
+    {"query": "วิธีป้องกันโรครากเน่า", "language": "th", "intent": "disease_control"},
+
+    {"query": "怎么杀灭树上的蚧壳虫", "language": "zh", "intent": "pest_control"},
+    {"query": "how to get rid of scale insects on durian", "language": "en", "intent": "pest_control"},
+    {"query": "วิธีกำจัดแมลงศัตรูพืช", "language": "th", "intent": "pest_control"},
+
+    {"query": "开花期施什么肥", "language": "zh", "intent": "fertilization"},
+    {"query": "what fertilizer for flowering stage durian", "language": "en", "intent": "fertilization"},
+    {"query": "ใส่ปุ๋ยช่วงออกดอกอย่างไร", "language": "th", "intent": "fertilization"},
+
+    {"query": "榴莲树多久浇一次水", "language": "zh", "intent": "irrigation"},
+    {"query": "how often should i irrigate my durian trees", "language": "en", "intent": "irrigation"},
+    {"query": "berapa kerap menyiram pokok durian", "language": "ms", "intent": "irrigation"},
+
+    {"query": "新叶发黄是缺什么营养元素", "language": "zh", "intent": "nutrient_diagnosis"},
+    {"query": "yellow new leaves which nutrient deficiency", "language": "en", "intent": "nutrient_diagnosis"},
+    {"query": "daun muda kuning kekurangan nutrien apa", "language": "ms", "intent": "nutrient_diagnosis"},
+
+    {"query": "有什么办法促进榴莲开花", "language": "zh", "intent": "flowering_management"},
+    {"query": "how to induce flowering in durian", "language": "en", "intent": "flowering_management"},
+    {"query": "วิธีกระตุ้นการออกดอกทุเรียน", "language": "th", "intent": "flowering_management"},
+
+    {"query": "幼果期落果严重怎么办", "language": "zh", "intent": "fruit_management"},
+    {"query": "how to manage fruit drop in young durian fruit", "language": "en", "intent": "fruit_management"},
+    {"query": "buah muda gugur banyak macam mana", "language": "ms", "intent": "fruit_management"},
+
+    {"query": "幼树要怎么修剪", "language": "zh", "intent": "pruning"},
+    {"query": "how to prune young durian trees", "language": "en", "intent": "pruning"},
+    {"query": "วิธีตัดแต่งกิ่งทุเรียน", "language": "th", "intent": "pruning"},
+
+    {"query": "种榴莲土壤pH多少合适", "language": "zh", "intent": "soil_management"},
+    {"query": "ideal soil ph for growing durian", "language": "en", "intent": "soil_management"},
+    {"query": "pH tanah sesuai untuk durian", "language": "ms", "intent": "soil_management"},
+
+    {"query": "连续下雨会引发什么病害风险", "language": "zh", "intent": "weather_risk"},
+    {"query": "what disease risk comes with the rainy season", "language": "en", "intent": "weather_risk"},
+    {"query": "ช่วงหน้าฝนต้องระวังโรคอะไร", "language": "th", "intent": "weather_risk"},
+
+    {"query": "榴莲什么时候可以采收", "language": "zh", "intent": "harvest"},
+    {"query": "when is durian ready to harvest", "language": "en", "intent": "harvest"},
+    {"query": "ทุเรียนเก็บเกี่ยวเมื่อไหร่", "language": "th", "intent": "harvest"},
+
+    {"query": "猫山王和金枕有什么区别", "language": "zh", "intent": "variety_query"},
+    {"query": "difference between musang king and monthong", "language": "en", "intent": "variety_query"},
+    {"query": "หมอนทองกับชะนีต่างกันอย่างไร", "language": "th", "intent": "variety_query"},
+
+    {"query": "什么是榴莲坐果", "language": "zh", "intent": "general_knowledge"},
+    {"query": "what is fruit set in durian", "language": "en", "intent": "general_knowledge"},
+    {"query": "durian berasal dari mana", "language": "ms", "intent": "general_knowledge"},
+
+    {"query": "3号园有多少台传感器", "language": "zh", "intent": "asset_query", "rule_backstop": true},
+    {"query": "list all devices in orchard 3", "language": "en", "intent": "asset_query", "rule_backstop": true},
+    {"query": "senarai peralatan di ladang 2", "language": "ms", "intent": "asset_query", "rule_backstop": true},
+
+    {"query": "今天有什么告警", "language": "zh", "intent": "alarm_query", "rule_backstop": true},
+    {"query": "any alarms today", "language": "en", "intent": "alarm_query", "rule_backstop": true},
+    {"query": "amaran hari ini ada apa", "language": "ms", "intent": "alarm_query", "rule_backstop": true},
+
+    {"query": "帮我创建一个巡检工单", "language": "zh", "intent": "task_create", "rule_backstop": true},
+    {"query": "create an inspection task for plot 5", "language": "en", "intent": "task_create", "rule_backstop": true},
+    {"query": "buat tugasan pemeriksaan esok", "language": "ms", "intent": "task_create", "rule_backstop": true},
+
+    {"query": "查一下工单123的状态", "language": "zh", "intent": "task_query", "rule_backstop": true},
+    {"query": "check the status of task 123", "language": "en", "intent": "task_query", "rule_backstop": true},
+    {"query": "semak tugasan 45 untuk saya", "language": "ms", "intent": "task_query", "rule_backstop": true},
+
+    {"query": "把工单5标记为已完成", "language": "zh", "intent": "task_update", "rule_backstop": true},
+    {"query": "mark task 5 as completed", "language": "en", "intent": "task_update", "rule_backstop": true},
+    {"query": "kemaskini tugasan 7 jadi selesai", "language": "ms", "intent": "task_update", "rule_backstop": true}
+  ]
+}
