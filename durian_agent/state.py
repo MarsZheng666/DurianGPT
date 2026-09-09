@@ -165,5 +165,5 @@ def init_state(
         allowed_knowledge_partitions=set(),
         final_answer="",
         retry_count=0,
-        degrade_level=DegradeLevel.FULL_CONTEXT,
+        degrade_level=int(DegradeLevel.FULL_CONTEXT),  # int 规避 checkpoint 序列化告警；IntEnum 相等性不受影响
     )
