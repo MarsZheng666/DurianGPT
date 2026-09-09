@@ -37,8 +37,8 @@ class TestGateway(unittest.TestCase):
     def test_invalid_role_rejected(self):
         with self.assertRaises(GatewayError):
             self.gateway.resolve_context(role="superadmin")
-        with self.assertRaises(GatewayError):
-            self.gateway.resolve_context(role="")
+        # 空串视为缺省（最小权限），与 None 同语义——FastAPI 头缺省传 None
+        self.assertEqual(self.gateway.resolve_context(role="")["role"], "worker")
 
     def test_language_validation(self):
         for lang in ("auto", "zh", "en", "th", "ms"):
