@@ -90,3 +90,115 @@ def iter_document_blocks(content: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         block["block_type"] = classify_block(raw)
         blocks.append(block)
     return blocks
+
+
+# ══════════════════ 正文递归分块（§19，任务 #20）══════════════════
+
+#: §19 建议区间：chunk 300～800 tokens（中文语料 ≈ 字符），overlap 10%～20%
+CHUNK_MIN_CHARS = 300
+CHUNK_MAX_CHARS = 800
+CHUNK_OVERLAP_RATIO = 0.15
+#: 建库噪声下限（对齐 rag_rechunk.MIN_CHUNK_CHARS=60 的实测值）
+_MIN_PIECE_CHARS = 60
+
+
+def chunk_text(
+    text: str,
+    *,
+    size: int = CHUNK_MAX_CHARS,
+    overlap_ratio: float = CHUNK_OVERLAP_RATIO,
+) -> List[str]:
+    """单段正文按句边界递归分块（移植 rag_rechunk.split_text 的实测逻辑）。
+
+    - 优先句号/分号/换行切点，其次逗号/空格（不把句子劈开）；
+    - 相邻块重叠 overlap_ratio*size（§19：10%～20%）；
+    - 低于 60 字的碎屑不进索引（对齐既有建库管线的噪声下限）；
+      过短的碎尾并入前一块，长文的分块落在 300～800 区间。
+    """
+    t = str(text or "").strip()
+    if len(t) <= size:
+        return [t] if len(t) >= _MIN_PIECE_CHARS else []
+
+    overlap = max(1, int(size * overlap_ratio))
+    pieces: List[str] = []
+    start, n = 0, len(t)
+    while start < n:
+        end = min(n, start + size)
+        if end < n:
+            window = t[start:end]
+            cut = max(window.rfind("。"), window.rfind("."),
+                      window.rfind("；"), window.rfind(";"), window.rfind("\n"))
+            if cut < size * 0.5:
+                cut = max(window.rfind("，"), window.rfind(","), window.rfind(" "))
+            if cut > size * 0.4:
+                end = start + cut + 1
+        piece = t[start:end].strip()
+        if len(piece) >= _MIN_PIECE_CHARS:
+            pieces.append(piece)
+        if end >= n:
+            break
+        start = max(end - overlap, start + 1)
+
+    # 碎尾合并：短于下限的最后一块并回前块（§19 区间约束）
+    if len(pieces) >= 2 and len(pieces[-1]) < CHUNK_MIN_CHARS * 0.5:
+        tail = pieces.pop()
+        pieces[-1] = (pieces[-1] + tail).strip()
+    return pieces
+
+
+def chunk_document(
+    blocks: List[Dict[str, Any]],
+    *,
+    size: int = CHUNK_MAX_CHARS,
+    overlap_ratio: float = CHUNK_OVERLAP_RATIO,
+) -> List[Dict[str, Any]]:
+    """标题→子标题→段落 的层级感知分块（§19）。
+
+    - title 块开启新 section（标题作为 chunk 的 section 元数据，正文不吞标题）；
+    - section 内 text 块合并后走 chunk_text 递归分块；
+    - table/image/scan_page 块**整块保留**（表格按 §20 单独处理，不参与切分）；
+    - 返回 [{"text", "section", "block_type", "source_index"}]。
+    """
+    chunks: List[Dict[str, Any]] = []
+    section = ""
+    buffer: List[str] = []
+    buffer_start: Optional[int] = None
+
+    def flush(end_index: int) -> None:
+        nonlocal buffer, buffer_start
+        if not buffer:
+            return
+        merged = "\n".join(buffer).strip()
+        for piece in chunk_text(merged, size=size, overlap_ratio=overlap_ratio):
+            chunks.append({
+                "text": piece,
+                "section": section,
+                "block_type": "text",
+                "source_index": buffer_start,
+            })
+        buffer, buffer_start = [], None
+
+    for index, block in enumerate(blocks):
+        btype = block.get("block_type", "text")
+        text = str(block.get("text") or block.get("content") or "").strip()
+        if btype == "title":
+            flush(index)
+            section = text
+        elif btype in ("table", "image", "scan_page"):
+            flush(index)
+            if text or block.get("image_path"):
+                chunks.append({
+                    "text": text,
+                    "section": section,
+                    "block_type": btype,
+                    "source_index": index,
+                    "image_path": block.get("image_path"),
+                })
+        else:
+            if not text:
+                continue
+            if buffer_start is None:
+                buffer_start = index
+            buffer.append(text)
+    flush(len(blocks))
+    return chunks

@@ -10,7 +10,15 @@
 
 import unittest
 
-from durian_agent.rag.chunking import BLOCK_TYPES, classify_block, iter_document_blocks
+from durian_agent.rag.chunking import (
+    BLOCK_TYPES,
+    CHUNK_MAX_CHARS,
+    CHUNK_MIN_CHARS,
+    chunk_document,
+    chunk_text,
+    classify_block,
+    iter_document_blocks,
+)
 
 
 class TestClassifyBlock(unittest.TestCase):
@@ -72,6 +80,100 @@ class TestIterDocumentBlocks(unittest.TestCase):
     def test_empty_and_invalid_input(self):
         self.assertEqual(iter_document_blocks([]), [])
         self.assertEqual(iter_document_blocks(["不是dict", None]), [])
+
+
+class TestChunkText(unittest.TestCase):
+    """任务 #20：正文递归分块（§19：300～800，overlap 10%～20%）。"""
+
+    @classmethod
+    def setUpClass(cls):
+        # 生成带句号边界的长中文正文（约 20 句 × 60 字 ≈ 1200+ 字）
+        sentences = [f"榴莲施肥管理第{i}条要点，需要根据树龄和生育阶段调整用肥量。" for i in range(30)]
+        cls.long_text = "".join(sentences)
+
+    def test_short_text_single_piece(self):
+        short = ("施肥应在雨季进行，注意排水防涝，避免积水烂根；旱季则需适当补水，"
+                 "并配合覆盖保墒；幼树薄肥勤施，结果树按生育阶段调整氮磷钾比例。")
+        self.assertGreaterEqual(len(short), 60)   # 前置：确在单块区间
+        self.assertEqual(chunk_text(short), [short])
+        self.assertEqual(chunk_text("太短"), [])   # 低于 60 字噪声下限
+
+    def test_pieces_within_bounds(self):
+        pieces = chunk_text(self.long_text)
+        self.assertGreater(len(pieces), 1)
+        for piece in pieces:
+            self.assertLessEqual(len(piece), CHUNK_MAX_CHARS + 5,
+                                 msg=f"超出上限: {len(piece)}")
+        # 可分块的长文：除最后一块外均应达到下限附近
+        for piece in pieces[:-1]:
+            self.assertGreaterEqual(len(piece), CHUNK_MIN_CHARS * 0.5,
+                                    msg=f"碎块: {len(piece)}")
+
+    def test_sentence_boundary_respected(self):
+        pieces = chunk_text(self.long_text)
+        for piece in pieces[:-1]:
+            self.assertTrue(
+                piece.rstrip().endswith(("。", "；", ";", ".", "\n")),
+                msg=f"句中切断: ...{piece[-20:]!r}",
+            )
+
+    def test_overlap_in_range(self):
+        """相邻块共享 10%～20% size 的重叠文本。"""
+        pieces = chunk_text(self.long_text)
+        for prev, cur in zip(pieces, pieces[1:]):
+            # 在前块尾部找当前块开头的重叠
+            head = cur[:20]
+            self.assertIn(head, prev[-int(CHUNK_MAX_CHARS * 0.25):],
+                          msg="相邻块无重叠")
+
+
+class TestChunkDocument(unittest.TestCase):
+
+    def test_section_aware_chunking(self):
+        blocks = iter_document_blocks([
+            {"type": "title", "text": "第三章 病虫害防治"},
+            {"type": "text", "text": "炭疽病防治要点一。" * 100},
+            {"type": "title", "text": "3.1 常见病害"},
+            {"type": "text", "text": "根腐病多发生于排水不良的果园地块，雨季前应做好排水沟清理与高垄栽培管理，发病初期可见叶片黄化脱落，严重时整株萎蔫枯死，需及时挖除病株并对土壤消毒。"},
+        ])
+        chunks = chunk_document(blocks)
+        self.assertGreaterEqual(len(chunks), 2)
+        sections = {c["section"] for c in chunks}
+        self.assertIn("第三章 病虫害防治", sections)
+        self.assertIn("3.1 常见病害", sections)
+
+    def test_table_block_kept_whole(self):
+        long_table = "|病害|药剂|\n|---|---|\n" + "|炭疽病|波尔多液|\n" * 200
+        blocks = iter_document_blocks([
+            {"type": "title", "text": "附录"},
+            {"type": "table", "text": long_table},
+            {"type": "text", "text": "表格说明见上文。"},
+        ])
+        chunks = chunk_document(blocks)
+        tables = [c for c in chunks if c["block_type"] == "table"]
+        self.assertEqual(len(tables), 1)
+        self.assertEqual(tables[0]["text"], long_table.strip())   # 整块保留不切分
+        self.assertEqual(tables[0]["section"], "附录")
+
+    def test_image_block_own_chunk(self):
+        blocks = iter_document_blocks([
+            {"type": "text", "text": "症状如图所示。"},
+            {"text": "![fig](f1.jpg)"},
+        ])
+        chunks = chunk_document(blocks)
+        images = [c for c in chunks if c["block_type"] == "image"]
+        self.assertEqual(len(images), 1)
+
+    def test_text_blocks_merged_within_section(self):
+        blocks = iter_document_blocks([
+            {"type": "title", "text": "灌溉"},
+            {"type": "text", "text": "滴灌省水，适合缺水园区，配合水肥一体化效果更好，可精准控制每株用水量与施肥量。"},
+            {"type": "text", "text": "喷灌覆盖广，适合苗期降温，但会增加叶面湿度需注意病害防控，不宜在花期使用。"},
+        ])
+        chunks = chunk_document(blocks)
+        self.assertEqual(len(chunks), 1)
+        self.assertIn("滴灌省水", chunks[0]["text"])
+        self.assertIn("喷灌覆盖广", chunks[0]["text"])
 
 
 if __name__ == "__main__":
