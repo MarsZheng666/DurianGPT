@@ -13,8 +13,24 @@ from typing import Dict, Union
 
 GLOSSARY_PATH = Path(__file__).resolve().parent.parent / "rag_build" / "glossary.json"
 
-# 数据文件里以 _ 开头的是说明键（_note / _meta），不是术语
+# 数据文件里以 _ 开头的是说明键（_note / _meta / _purpose），不是术语
 _META_KEYS = {"_note", "_meta", "_purpose"}
+
+
+def _read_raw(path: Union[str, Path]) -> Dict[str, Dict[str, str]]:
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    categorized: Dict[str, Dict[str, str]] = {}
+    for category, entries in data.items():
+        if not isinstance(entries, dict):
+            continue
+        clean = {
+            alias: canonical
+            for alias, canonical in entries.items()
+            if alias not in _META_KEYS and isinstance(canonical, str)
+        }
+        if clean:
+            categorized[category] = clean
+    return categorized
 
 
 def load_glossary(path: Union[str, Path] = GLOSSARY_PATH) -> Dict[str, str]:
@@ -23,13 +39,14 @@ def load_glossary(path: Union[str, Path] = GLOSSARY_PATH) -> Dict[str, str]:
     别名覆盖四种文字（zh/en/th/ms），同一标准名可能有多个别名。
     键冲突时后写的分类覆盖先写的——当前数据无跨分类同名别名。
     """
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
     mapping: Dict[str, str] = {}
-    for category, entries in data.items():
-        if not isinstance(entries, dict):
-            continue
-        for alias, canonical in entries.items():
-            if alias in _META_KEYS or not isinstance(canonical, str):
-                continue
-            mapping[alias] = canonical
+    for entries in _read_raw(path).values():
+        mapping.update(entries)
     return mapping
+
+
+def load_glossary_categorized(
+    path: Union[str, Path] = GLOSSARY_PATH,
+) -> Dict[str, Dict[str, str]]:
+    """读取术语表，返回 {分类: {别名: 标准名}}（保留分类，供实体槽位映射）。"""
+    return _read_raw(path)
