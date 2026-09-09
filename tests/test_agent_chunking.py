@@ -18,6 +18,7 @@ from durian_agent.rag.chunking import (
     chunk_text,
     classify_block,
     iter_document_blocks,
+    table_to_markdown,
 )
 
 
@@ -178,3 +179,52 @@ class TestChunkDocument(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTableToMarkdown(unittest.TestCase):
+    """任务 #16：表格处理（§20：表头/单位/行列关系/说明文字全保留）。"""
+
+    def test_basic_structure(self):
+        md = table_to_markdown(
+            ["品种", "株距"],
+            [["金枕", "8米"], ["猫山王", "10米"]],
+        )
+        lines = md.split("\n")
+        self.assertEqual(lines[0], "|品种|株距|")
+        self.assertEqual(lines[1], "|---|---|")
+        self.assertEqual(lines[2], "|金枕|8米|")
+        self.assertEqual(lines[3], "|猫山王|10米|")
+
+    def test_units_merged_into_header(self):
+        md = table_to_markdown(
+            ["药剂", "剂量"],
+            [["波尔多液", "500"]],
+            units={"剂量": "ml"},
+        )
+        self.assertIn("|药剂|剂量 (ml)|", md)
+        self.assertIn("|波尔多液|500|", md)
+
+    def test_caption_preserved(self):
+        md = table_to_markdown(
+            ["病害", "药剂"], [["炭疽病", "波尔多液"]],
+            caption="表3-1 常见病害防治用药表",
+        )
+        self.assertIn("表3-1 常见病害防治用药表", md)
+
+    def test_cell_newline_to_br(self):
+        md = table_to_markdown(
+            ["虫害", "为害部位"],
+            [["果蛀虫\n（幼虫）", "果实"]],
+        )
+        self.assertIn("果蛀虫<br>（幼虫）", md)
+        self.assertEqual(len(md.split("\n")), 3)   # 表体仍是一块
+
+    def test_pipe_escaped(self):
+        md = table_to_markdown(["症状"], [["黄斑|落叶"]])
+        self.assertIn("黄斑\\|落叶", md)
+
+    def test_short_rows_padded(self):
+        md = table_to_markdown(
+            ["a", "b", "c"], [["只有一列"]],
+        )
+        self.assertEqual(md.split("\n")[2], "|只有一列|||")

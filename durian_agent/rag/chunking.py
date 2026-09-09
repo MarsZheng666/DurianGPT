@@ -202,3 +202,55 @@ def chunk_document(
             buffer.append(text)
     flush(len(blocks))
     return chunks
+
+
+# ══════════════════ 表格处理（§20，任务 #16）══════════════════
+
+
+def table_to_markdown(
+    headers: List[str],
+    rows: List[List[str]],
+    *,
+    caption: Optional[str] = None,
+    units: Optional[Dict[str, str]] = None,
+) -> str:
+    """结构化表格 → Markdown 整块文本（§20）。
+
+    保留四要素：
+    - 表头：units 里的单位并入表头单元格（如 "剂量 (ml)"）；
+    - 行列关系：单元格一一对应，列数以 headers 为准，缺位补空串；
+    - 单位：不丢（并入表头而非单独一行，检索时与列名同现）；
+    - 说明文字：caption 作为独立行放在表后（语料实测格式为【表格】前缀
+      + 表体，此处沿用 caption 后置，前缀由调用方决定）。
+
+    单元格内的换行转 <br>（与既有语料的表格分块格式一致，
+    避免 Markdown 表格被单元格换行破坏）。
+    """
+    units = units or {}
+
+    def cell(value: Any) -> str:
+        text = str(value if value is not None else "").strip()
+        return text.replace("|", "\\|").replace("\n", "<br>")
+
+    header_cells = []
+    for header in headers:
+        h = cell(header)
+        unit = units.get(str(header))
+        if unit and f"({unit})" not in h:
+            h = f"{h} ({cell(unit)})"
+        header_cells.append(h)
+
+    width = len(header_cells)
+    lines = [
+        "|" + "|".join(header_cells) + "|",
+        "|" + "|".join(["---"] * width) + "|",
+    ]
+    for row in rows:
+        cells = [cell(v) for v in list(row)[:width]]
+        cells += [""] * (width - len(cells))
+        lines.append("|" + "|".join(cells) + "|")
+
+    table = "\n".join(lines)
+    if caption:
+        table = f"{table}\n{cell(caption)}"
+    return table
