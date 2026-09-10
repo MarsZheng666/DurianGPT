@@ -66,6 +66,8 @@ class GraphState(AgentState, total=False):
     react_steps: int
     pending_confirmation: dict
     rag_forced: bool
+    tenant_id: str
+    user_orchard_scope: list
 
 
 class DurianAgentGraph:
@@ -219,11 +221,19 @@ class DurianAgentGraph:
         return {"search_queries": queries,
                 "retry_count": state.get("retry_count", 0) + 1}
 
-    def _rag_search_helper(self, query: str) -> Dict[str, Any]:
+    def _rag_search_helper(self, query: str,
+                       scope_state: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """SimpleAgent 的 rag_fn：四路召回 + RRF，返回 §60 契约。"""
         if self.retriever is None:
             return {"documents": [], "evidence_sufficient": False}
-        result = self.retriever.recall(query, top_k_each=10) or {"hits": {}, "rankings": {}}
+        from durian_agent.rag.permissions import (
+            build_scope_expr, scope_from_graph_state,
+        )
+        expr = None
+        if scope_state is not None and scope_state.get("tenant_id"):
+            expr = build_scope_expr(scope_from_graph_state(scope_state))
+        result = self.retriever.recall(query, top_k_each=10, expr=expr) \
+            or {"hits": {}, "rankings": {}}
         fused = weighted_rrf(result["rankings"])
         by_id = {d["chunk_id"]: d
                  for hits in result["hits"].values() for d in hits}
@@ -245,7 +255,7 @@ class DurianAgentGraph:
 
         result = self._simple.answer(
             state.get("normalized_query", ""),
-            rag_fn=self._rag_search_helper,
+            rag_fn=lambda q: self._rag_search_helper(q, scope_state=state),
             history_summary=state.get("history_summary", ""),
             recent_messages=state.get("recent_messages") or [],
             business_state=business_state_from_graph_state(state),

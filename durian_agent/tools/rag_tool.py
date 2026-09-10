@@ -41,7 +41,14 @@ def _execute(args, ctx: ToolContext, retriever, reranker, semantic) -> str:
     # 证据判断优先用当前会话的 Semantic Schema（ctx.state 动态携带）
     semantic = semantic or (ctx.state or {}).get("semantic")
 
-    result = retriever.recall(query, top_k_each=10) or {"hits": {}, "rankings": {}}
+    expr = None
+    if ctx.state is not None and ctx.state.get("tenant_id"):
+        from durian_agent.rag.permissions import (
+            build_scope_expr, scope_from_graph_state,
+        )
+        expr = build_scope_expr(scope_from_graph_state(ctx.state))
+    result = retriever.recall(query, top_k_each=10, expr=expr) \
+        or {"hits": {}, "rankings": {}}
     fused = weighted_rrf(result["rankings"])
     by_id = {d["chunk_id"]: d
              for hits in result["hits"].values() for d in hits}

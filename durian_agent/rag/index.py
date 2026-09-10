@@ -162,6 +162,7 @@ class VectorIndex:
         schema = self.client.create_schema(auto_id=False, enable_dynamic_field=False)
         schema.add_field("chunk_id", DataType.VARCHAR, is_primary=True, max_length=64)
         schema.add_field("vector", DataType.FLOAT_VECTOR, dim=self.dim)
+        schema.add_field("tenant_id", DataType.VARCHAR, max_length=64)
         schema.add_field("text", DataType.VARCHAR, max_length=self.TEXT_MAX)
         schema.add_field("document_id", DataType.VARCHAR, max_length=512)
         schema.add_field("language", DataType.VARCHAR, max_length=8)
@@ -179,16 +180,20 @@ class VectorIndex:
         texts = [str(r["text"])[: self.TEXT_MAX - 1] for r in records]
         vectors = self.embed_fn(texts)
         for record, vector, text in zip(records, vectors, texts):
+            from durian_agent.rag.permissions import normalize_orchard_scope
+
             rows.append({
                 "chunk_id": str(record["chunk_id"])[:63],
                 "vector": vector,
+                "tenant_id": str(record.get("tenant_id", "default"))[:63],
                 "text": text,
                 "document_id": str(record.get("document_id", ""))[:511],
                 "language": str(record.get("language", "zh"))[:7],
                 "domain": str(record.get("domain", "general"))[:63],
                 "source_type": str(record.get("source_type", "document"))[:31],
                 "role_scope": list(record.get("role_scope") or [])[:8],
-                "orchard_scope": list(record.get("orchard_scope") or [])[:16],
+                "orchard_scope": normalize_orchard_scope(
+                    record.get("orchard_scope"))[:16],
             })
         for start in range(0, len(rows), 256):
             self.client.insert(self.COLLECTION, rows[start:start + 256])
@@ -208,7 +213,8 @@ class VectorIndex:
             limit=top_k,
             filter=expr,
             output_fields=["text", "document_id", "language", "domain",
-                           "source_type", "role_scope", "orchard_scope"],
+                           "source_type", "role_scope", "orchard_scope",
+                           "tenant_id"],
         )
         hits: List[Dict[str, Any]] = []
         for hit in results[0]:
@@ -221,6 +227,7 @@ class VectorIndex:
                 "text": entity.get("text", ""),
                 "record": {
                     "chunk_id": chunk_id,
+                    "tenant_id": entity.get("tenant_id", "default"),
                     "text": entity.get("text", ""),
                     "document_id": entity.get("document_id", ""),
                     "language": entity.get("language", ""),
