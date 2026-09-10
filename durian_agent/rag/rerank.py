@@ -23,6 +23,11 @@ RerankFn = Callable[[str, Sequence[str]], List[float]]
 #: 长文本截断（实测经验：超出部分无判别增益）
 MAX_PASSAGE_CHARS = 512
 
+#: §28 阈值：相关性低于该值的文档不进入最终上下文。
+#: 默认 0.3 基于本地模型实测判别分布（相关 ≈0.8，无关 ≈0.0）；
+#: 最终阈值须以离线评估集调优（任务 #60/#61，阶段五），此处可配置。
+RERANK_THRESHOLD = 0.3
+
 
 def local_bge_reranker(
     model_path: str | Path = _MODEL_PATH,
@@ -58,10 +63,12 @@ def rerank_documents(
     rerank_fn: RerankFn,
     *,
     top_k: int = 5,
+    min_score: float = RERANK_THRESHOLD,
 ) -> List[Dict[str, Any]]:
-    """按 Cross Encoder 分数重排并截取 Top-K（§27：Top30-50 → Top3-5）。
+    """按 Cross Encoder 分数重排、阈值过滤（§28）、截取 Top-K。
 
-    返回新列表（不修改入参）：按 rerank 分数降序，附 rerank_score 字段。
+    §27/§28：RRF Top30-50 → rerank → 低于 min_score 的不进最终上下文 →
+    Top3-5。返回新列表（不修改入参）：按 rerank 分数降序，附 rerank_score。
     """
     if not docs:
         return []
@@ -71,4 +78,5 @@ def rerank_documents(
         (dict(d, rerank_score=float(s)) for d, s in zip(docs, scores)),
         key=lambda d: -d["rerank_score"],
     )
-    return ranked[:top_k]
+    kept = [d for d in ranked if d["rerank_score"] >= min_score]
+    return kept[:top_k]
