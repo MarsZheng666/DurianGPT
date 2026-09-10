@@ -23,6 +23,11 @@ from durian_agent.normalize import normalize_input
 #: 单点相关判定：证据少于该数量视为单点
 MIN_EVIDENCE_DOCS = 2
 
+#: 需要证据覆盖的实体槽位——**内容实体**（品种/病害/虫害/肥料/农药）。
+#: orchard/plot 是用户侧定位符（"3号园的猫山王"），知识文本不必提到
+#: 园区编号，要求覆盖会把正确证据误判为不足。
+COVERAGE_REQUIRED_SLOTS = ("cultivar", "disease", "pest", "fertilizer", "pesticide")
+
 #: 数值条件模式（语言无关：数字+农事单位，与 #19 剂量兜底一致）
 _NUM_COND_RE = re.compile(
     r"\d+\s*(?:ml|kg|ppm|กรัม|มิลลิลิตร|ลิตร|克|毫升|升|g|l)(?![a-z0-9])"
@@ -64,9 +69,10 @@ def check_evidence(
     top_texts = [str(d.get("text", "")) for d in docs]
     top_joined = "\n".join(top_texts)
 
-    # ── 1. 关键实体覆盖 ──
+    # ── 1. 关键实体覆盖（只要求内容实体；orchard/plot 为定位符不要求）──
     entities = semantic.get("entities") or {}
-    for slot, canonical in entities.items():
+    for slot in COVERAGE_REQUIRED_SLOTS:
+        canonical = entities.get(slot)
         if not canonical:
             continue
         if not _contains_any(top_joined, _entity_surface_forms(canonical)):

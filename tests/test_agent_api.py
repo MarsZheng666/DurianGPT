@@ -93,7 +93,7 @@ class TestChatContract(unittest.TestCase):
             "thread_id": "t-4", "message": "帮我创建一个巡检工单"})
         body = resp.json()
         self.assertEqual(body["route"], "COMPLEX_TASK")
-        self.assertIn("第三阶段", body["answer"])
+        self.assertIn("未能完成", body["answer"])
 
 
 class TestGatewayIntegration(unittest.TestCase):

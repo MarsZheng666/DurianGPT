@@ -29,6 +29,12 @@ _PROFESSIONAL_RISK_FLAGS = (
     "regulation_related",
 )
 
+#: 业务/查询类意图——weather_dependent 在这些意图下不代表农艺结论
+_BUSINESS_INTENTS = {
+    "task_create", "task_query", "task_update",
+    "asset_query", "alarm_query",
+}
+
 
 def involves_professional_conclusion(semantic: Optional[Dict[str, Any]]) -> bool:
     """§16 清单命中即视为专业结论（宁多勿漏）。"""
@@ -41,7 +47,14 @@ def involves_professional_conclusion(semantic: Optional[Dict[str, Any]]) -> bool
         if secondary in _PROFESSIONAL_INTENTS:
             return True
     risks = semantic.get("risk_features") or {}
-    return any(risks.get(flag) for flag in _PROFESSIONAL_RISK_FLAGS)
+    if any(risks.get(flag) for flag in _PROFESSIONAL_RISK_FLAGS):
+        return True
+    # 灌溉决策类：依赖天气的判断（"根据天气决定灌水"）是农艺阈值结论；
+    # 纯数据读取（"当前土壤湿度多少"）不带 weather_dependent，不受此罚；
+    # 业务/查询意图（工单/资产/告警）里的天气词不代表农艺结论
+    if risks.get("weather_dependent") and intent not in _BUSINESS_INTENTS:
+        return True
+    return False
 
 
 def has_valid_evidence(state: Dict[str, Any]) -> bool:
@@ -57,7 +70,12 @@ def gate_final_answer(
 
     返回 None 表示放行；返回 {"tool": "agriculture_rag", "args": {...}}
     表示拦截并注入的强制工具调用。
+
+    一次性护栏：rag_forced 已置位（本轮已强制取过证）则放行——
+    证据仍不足时由 Agent 诚实说明（"知识库证据不足"），不再死循环。
     """
+    if state.get("rag_forced"):
+        return None
     if not involves_professional_conclusion(semantic):
         return None
     if has_valid_evidence(state):

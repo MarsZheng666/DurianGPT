@@ -62,6 +62,10 @@ class GraphState(AgentState, total=False):
     used_rag: bool
     pending_tool_calls: list
     evidence_reasons: list
+    react_done: bool
+    react_steps: int
+    pending_confirmation: dict
+    rag_forced: bool
 
 
 class DurianAgentGraph:
@@ -75,6 +79,7 @@ class DurianAgentGraph:
         max_retrievals: int = MAX_RETRIEVALS,
         checkpointer=None,
         reranker=None,
+        tools=None,
     ):
         self.llm = llm
         self.retriever = retriever
@@ -82,11 +87,19 @@ class DurianAgentGraph:
         self.max_retrievals = max_retrievals
         self._parser = SemanticParser(llm)
         self._simple = SimpleAgent(llm) if llm is not None else None
+        # ReAct（#39）：显式传 tools 或（有 LLM 时）默认九工具装配
+        from durian_agent.tools import build_default_registry
+        from durian_agent.tools.react import ReActEngine
+        if tools is None and llm is not None:
+            tools = build_default_registry(retriever=retriever, reranker=reranker)
+        self.tools = tools
+        self._react = (ReActEngine(llm, tools)
+                       if llm is not None and tools is not None else None)
         self.graph = self._build(checkpointer)
 
     # ══════════════════ 节点实现 ══════════════════
 
-    def _context_init(self, state: AgentState) -> Dict[str, Any]:
+    def _context_init(self, state: GraphState) -> Dict[str, Any]:
         """补齐缺省状态键（§4 init_state 安全默认值）+ 落一条 HumanMessage。
 
         messages 通道由 LangGraph 预初始化为空列表（"in state" 恒真），
@@ -102,7 +115,7 @@ class DurianAgentGraph:
         patch["messages"] = [HumanMessage(content=state.get("original_query", ""))]
         return patch
 
-    def _normalize(self, state: AgentState) -> Dict[str, Any]:
+    def _normalize(self, state: GraphState) -> Dict[str, Any]:
         query = state.get("original_query", "")
         if _THAI_RE.search(query):
             normalized = normalize_thai_input(query)
@@ -110,22 +123,22 @@ class DurianAgentGraph:
             normalized = normalize_input(query)
         return {"normalized_query": normalized}
 
-    def _semantic_parse(self, state: AgentState) -> Dict[str, Any]:
+    def _semantic_parse(self, state: GraphState) -> Dict[str, Any]:
         semantic = self._parser.parse(state.get("normalized_query", ""))
         language = semantic.get("language") or state.get("language", "zh")
         semantic["language"] = language
         return {"semantic": semantic, "language": language}
 
-    def _route(self, state: AgentState) -> Dict[str, Any]:
+    def _route(self, state: GraphState) -> Dict[str, Any]:
         decision = route_decision(state.get("semantic", {}))
         return {"route": decision["route"], "route_reason": decision["reason"]}
 
-    def _rag_query_build(self, state: AgentState) -> Dict[str, Any]:
+    def _rag_query_build(self, state: GraphState) -> Dict[str, Any]:
         queries = build_queries(state.get("normalized_query", ""))
         return {"search_queries": [queries["original"], queries["canonical"],
                                    queries["expanded"]]}
 
-    def _retrieve(self, state: AgentState) -> Dict[str, Any]:
+    def _retrieve(self, state: GraphState) -> Dict[str, Any]:
         """四路召回（§25）。重试轮次用最新改写查询（rewrite 更新 search_queries[0]）。"""
         if self.retriever is None:
             return {"retrieved_docs": [],
@@ -143,7 +156,7 @@ class DurianAgentGraph:
         return {"retrieved_docs": flattened,
                 "retrieval_count": state.get("retrieval_count", 0) + 1}
 
-    def _rrf(self, state: AgentState) -> Dict[str, Any]:
+    def _rrf(self, state: GraphState) -> Dict[str, Any]:
         docs = state.get("retrieved_docs", [])
         by_id = {d["chunk_id"]: d for d in docs}
         rankings: Dict[str, list] = {r: [] for r in
@@ -163,7 +176,7 @@ class DurianAgentGraph:
             reranked.append(doc)
         return {"reranked_docs": reranked}
 
-    def _rerank(self, state: AgentState) -> Dict[str, Any]:
+    def _rerank(self, state: GraphState) -> Dict[str, Any]:
         """Cross Encoder 重排（§27，#32）：RRF 序 → rerank 分 → Top5。"""
         if self.reranker is None:
             return {}   # 未配置重排器：透传 RRF 序（阶段一行为）
@@ -174,7 +187,7 @@ class DurianAgentGraph:
             state.get("normalized_query", ""), docs, self.reranker, top_k=5)
         return {"reranked_docs": reranked}
 
-    def _evidence_check(self, state: AgentState) -> Dict[str, Any]:
+    def _evidence_check(self, state: GraphState) -> Dict[str, Any]:
         """五项判断（§29，#30）：实体覆盖/核心条件/数值条件/来源冲突/单点。"""
         from durian_agent.rag.evidence import check_evidence
 
@@ -186,7 +199,7 @@ class DurianAgentGraph:
         return {"evidence_sufficient": result["sufficient"],
                 "evidence_reasons": result["reasons"]}
 
-    def _rewrite_query(self, state: AgentState) -> Dict[str, Any]:
+    def _rewrite_query(self, state: GraphState) -> Dict[str, Any]:
         """两层改写（§24/§47，#28）：LLM 层（§47 禁猜清单+数字护栏）→ 规则层兜底。"""
         from durian_agent.rag.rewrite import rewrite_query
 
@@ -224,7 +237,7 @@ class DurianAgentGraph:
         return {"documents": documents,
                 "evidence_sufficient": bool(fused)}
 
-    def _simple_agent(self, state: AgentState) -> Dict[str, Any]:
+    def _simple_agent(self, state: GraphState) -> Dict[str, Any]:
         if self._simple is None:
             answer = "（SIMPLE 路径需要 LLM，当前未配置。）"
             return {"final_answer": answer, "messages": [AIMessage(content=answer)]}
@@ -237,35 +250,108 @@ class DurianAgentGraph:
                 "used_rag": result["used_rag"],
                 "messages": [AIMessage(content=result["answer"])]}
 
-    def _react_agent(self, state: AgentState) -> Dict[str, Any]:
-        """占位（#39 Phase3）：ReAct 循环未实现，降级为提示性回答。"""
-        answer = ("复杂任务编排（多工具 ReAct）将在第三阶段上线；"
-                  "当前可先拆解为具体问题分别提问。")
-        return {"final_answer": answer, "degrade_level": int(DegradeLevel.MINIMAL),
-                "messages": [AIMessage(content=answer)]}
+    def _react_agent(self, state: GraphState) -> Dict[str, Any]:
+        """ReAct 一步推理（#39）；未配置 LLM/工具时降级提示。"""
+        if self._react is None:
+            answer = ("复杂任务编排需要 LLM 与工具配置；"
+                      "当前可拆解为具体问题分别提问。")
+            return {"final_answer": answer, "react_done": True,
+                    "degrade_level": int(DegradeLevel.MINIMAL),
+                    "messages": [AIMessage(content=answer)]}
+        return self._react.step(state)
 
-    def _tool_policy(self, state: AgentState) -> Dict[str, Any]:
-        """占位（#38 Phase3）：ToolPolicyGate。"""
-        return {"pending_tool_calls": []}
-
-    def _tool_node(self, state: AgentState) -> Dict[str, Any]:
-        """占位（Phase3 工具层）。"""
+    def _tool_policy(self, state: GraphState) -> Dict[str, Any]:
+        """ToolPolicyGate（#38，§16/§64）：想下专业结论且无证据 → 强制 RAG。"""
+        if state.get("pending_tool_calls"):
+            return {}
+        if state.get("react_done"):
+            from durian_agent.tools.policy import gate_final_answer
+            forced = gate_final_answer(
+                state.get("semantic"), state,
+                state.get("normalized_query", ""))
+            if forced:
+                return {"pending_tool_calls": [forced], "react_done": False,
+                        "rag_forced": True}
         return {}
 
-    def _permission_check(self, state: AgentState) -> Dict[str, Any]:
-        """占位（#49 Phase5：Tool Permission）。"""
+    def _tool_node(self, state: GraphState) -> Dict[str, Any]:
+        """执行待决工具调用（#39）；敏感操作被 Registry 拦截为待确认草稿。"""
+        import uuid
+
+        from langchain_core.messages import ToolMessage
+
+        from durian_agent.tools import ToolContext, parse_pending_confirmation
+
+        calls = state.get("pending_tool_calls") or []
+        if not calls or self.tools is None:
+            return {}
+        # 工具可回写的状态（RAG 证据）；LangGraph 节点 state 是快照，
+        # 回写需通过返回 patch 传播
+        tool_state = {"semantic": state.get("semantic")}
+        ctx = ToolContext(
+            user_id=state.get("user_id", ""),
+            role=state.get("role", "worker"),
+            thread_id=state.get("thread_id", ""),
+            language=state.get("language", "zh"),
+            state=tool_state,
+        )
+        patch: Dict[str, Any] = {
+            "pending_tool_calls": [],
+            "react_steps": state.get("react_steps", 0) + 1,
+        }
+        for index, call in enumerate(calls):
+            observation = self.tools.execute(
+                call.get("tool", ""), call.get("args") or {}, ctx)
+            patch.setdefault("messages", []).append(
+                ToolMessage(content=observation,
+                            tool_call_id=f"call-{patch['react_steps']}-{index}"))
+            pending = parse_pending_confirmation(observation)
+            if pending:
+                patch["pending_confirmation"] = {
+                    "confirmation_id": f"cfm-{uuid.uuid4().hex[:10]}",
+                    **pending,
+                }
+                patch["final_answer"] = (
+                    f"以下操作需要您确认后才会执行：{pending['tool']} "
+                    f"{pending['args'].get('title', '')}".strip())
+                patch["react_done"] = True
+                return patch
+        if "reranked_docs" in tool_state:
+            patch["reranked_docs"] = tool_state["reranked_docs"]
+        if "evidence_sufficient" in tool_state:
+            patch["evidence_sufficient"] = tool_state["evidence_sufficient"]
+        return patch
+
+    def _permission_check(self, state: GraphState) -> Dict[str, Any]:
+        """占位（#49 Phase5：Tool Permission 角色过滤）。当前全放行。"""
         return {}
 
-    def _confirmation(self, state: AgentState) -> Dict[str, Any]:
+
+    def _confirmation(self, state: GraphState) -> Dict[str, Any]:
         """占位（#54 Phase5：敏感操作二次确认）。"""
         return {}
 
-    def _memory_compress(self, state: AgentState) -> Dict[str, Any]:
+    def _memory_compress(self, state: GraphState) -> Dict[str, Any]:
         """占位（#53 Phase4：滑动窗口与摘要）。"""
         return {}
 
-    def _answer(self, state: AgentState) -> Dict[str, Any]:
-        """MUST_RAG 终点：Final Generation（§30 证据约束生成 + §31 引用一一对应）。"""
+    def _answer(self, state: GraphState) -> Dict[str, Any]:
+        """MUST_RAG 终点 / COMPLEX 收尾（ReAct 已产出回答时透传+抽引用）。"""
+        # COMPLEX_TASK：ReAct 的 final_answer 已就绪 → 只补引用，不重新生成
+        if state.get("route") == "COMPLEX_TASK" and state.get("final_answer"):
+            docs = state.get("reranked_docs", [])
+            from durian_agent.rag.generation import parse_citations
+            cited = set(parse_citations(state["final_answer"], docs))
+            sources = [
+                {"document_id": d.get("record", {}).get("document_id",
+                                                        d.get("document_id", "?")),
+                 "chunk_id": d["chunk_id"],
+                 "title": d.get("record", {}).get("document_id", ""),
+                 "section": ""}
+                for d in docs if d["chunk_id"] in cited
+            ]
+            return {"rag_sources": sources}
+
         docs = state.get("reranked_docs", [])
         if state.get("evidence_sufficient") and docs and self.llm is not None:
             from durian_agent.rag.generation import generate_with_citations
@@ -286,7 +372,7 @@ class DurianAgentGraph:
                     "messages": [AIMessage(content=result["answer"])]}
         return {}   # 证据不足由 fallback 处理（evidence_check 已分流，不会到此）
 
-    def _fallback(self, state: AgentState) -> Dict[str, Any]:
+    def _fallback(self, state: GraphState) -> Dict[str, Any]:
         """§30/§48：证据不足时诚实拒答，禁止退化成模型自由回答。"""
         answer = (f"知识库中暂无足够证据回答「{state.get('original_query', '')[:50]}」。"
                   "请补充：具体品种、园区、症状细节或照片，我会重新检索。"
@@ -323,7 +409,7 @@ class DurianAgentGraph:
         builder.add_edge("normalize", "semanticParse")
         builder.add_edge("semanticParse", "route")
 
-        def route_branch(state: AgentState):
+        def route_branch(state: GraphState):
             return {"MUST_RAG": "ragQueryBuild",
                     "SIMPLE": "simpleAgent",
                     "COMPLEX_TASK": "reactAgent"}[state["route"]]
@@ -336,7 +422,7 @@ class DurianAgentGraph:
         builder.add_edge("rrf", "rerank")
         builder.add_edge("rerank", "evidenceCheck")
 
-        def evidence_branch(state: AgentState):
+        def evidence_branch(state: GraphState):
             if state.get("evidence_sufficient"):
                 return "answer"
             if state.get("retrieval_count", 0) < self.max_retrievals:
@@ -349,13 +435,20 @@ class DurianAgentGraph:
 
         builder.add_edge("reactAgent", "toolPolicy")
 
-        def tool_policy_branch(state: AgentState):
+        def tool_policy_branch(state: GraphState):
             return "permissionCheck" if state.get("pending_tool_calls") else "answer"
 
         builder.add_conditional_edges("toolPolicy", tool_policy_branch,
                                       ["permissionCheck", "answer"])
         builder.add_edge("permissionCheck", "toolNode")
-        builder.add_edge("toolNode", "reactAgent")
+
+        def tool_node_branch(state: GraphState):
+            # 敏感操作被拦截（react_done）→ 直接收尾提问确认；
+            # 正常观察 → 回 reactAgent 继续推理
+            return "answer" if state.get("react_done") else "reactAgent"
+
+        builder.add_conditional_edges("toolNode", tool_node_branch,
+                                      ["reactAgent", "answer"])
 
         builder.add_edge("simpleAgent", "memoryCompress")
         builder.add_edge("answer", "memoryCompress")

@@ -153,7 +153,7 @@ class TestEdgeBranches(unittest.TestCase):
         graph, _ = make_graph(None)
         result = graph.invoke("帮我创建一个巡检工单", thread_id="t4")
         self.assertEqual(result["route"], "COMPLEX_TASK")
-        self.assertIn("第三阶段", result["final_answer"])   # reactAgent 占位降级
+        self.assertIn("未能完成", result["final_answer"])   # FakeLLM 非 JSON → 引擎降级
 
 
 class TestThreadIsolation(unittest.TestCase):

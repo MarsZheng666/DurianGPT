@@ -38,6 +38,8 @@ def _execute(args, ctx: ToolContext, retriever, reranker, semantic) -> str:
         return "参数错误: query 必填"
     if retriever is None:
         return "知识库检索不可用（未配置检索器）"
+    # 证据判断优先用当前会话的 Semantic Schema（ctx.state 动态携带）
+    semantic = semantic or (ctx.state or {}).get("semantic")
 
     result = retriever.recall(query, top_k_each=10) or {"hits": {}, "rankings": {}}
     fused = weighted_rrf(result["rankings"])
