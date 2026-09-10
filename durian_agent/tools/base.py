@@ -42,6 +42,9 @@ class ToolSpec:
     args_hint: str = ""
     #: §41 敏感操作：需用户确认后才执行（Registry 强制拦截）
     confirmation_required: bool = False
+    #: §41 Validation：生成待确认草稿**之前**的参数校验
+    #: （args -> 错误文本或 None；无效草稿不进确认流）
+    draft_validator: Optional[Callable[[Dict[str, Any]], Optional[str]]] = None
 
 
 @dataclass
@@ -130,6 +133,10 @@ class ToolRegistry:
         if not allowed_for_role(name, ctx.role):
             return f"权限不足: 角色 {ctx.role} 不能使用 {name}"
         if spec.confirmation_required and not ctx.confirmed:
+            if spec.draft_validator is not None:
+                error = spec.draft_validator(args or {})
+                if error:
+                    return error   # §41 Validation：无效草稿不展示给用户
             return pending_confirmation_observation(name, args or {})
         try:
             return fn(args or {}, ctx)

@@ -23,6 +23,27 @@ from durian_agent.tools.providers import TASK_STATUSES, TaskProvider
 
 PENDING_CONFIRMATION_PREFIX = "PENDING_CONFIRMATION: "
 
+def _validate_create(args) -> str | None:
+    if not str(args.get("title") or "").strip():
+        return "参数错误: title 必填"
+    priority = args.get("priority", "normal")
+    if priority not in ("low", "normal", "high"):
+        return "参数错误: priority 需为 low/normal/high"
+    return None
+
+def _validate_update(args) -> str | None:
+    task_id = str(args.get("task_id") or "").strip()
+    if not task_id:
+        return "参数错误: task_id 必填"
+    status = args.get("status")
+    if status is not None and status not in TASK_STATUSES:
+        return f"参数错误: status 需为 {list(TASK_STATUSES)} 之一"
+    patch = {k: args.get(k) for k in
+             ("status", "assignee", "title", "description") if args.get(k)}
+    if not patch:
+        return "参数错误: 至少提供 status/assignee/title/description 之一"
+    return None
+
 QUERY_SPEC = ToolSpec(
     name="task_query",
     description="查询工单（按编号/状态/园区过滤）。",
@@ -34,12 +55,14 @@ CREATE_SPEC = ToolSpec(
     args_hint='{"title": "排水巡检", "orchard": "ORCHARD_3", "plot": "PLOT_5", '
               '"priority": "high", "description": "...", "idempotency_key": "..."}',
     confirmation_required=True,
+    draft_validator=_validate_create,
 )
 UPDATE_SPEC = ToolSpec(
     name="task_update",
     description="更新工单（状态/负责人/内容）。需要用户确认后才会执行。",
     args_hint='{"task_id": "T-101", "status": "done", "assignee": "阿明"}',
     confirmation_required=True,
+    draft_validator=_validate_update,
 )
 
 
@@ -69,14 +92,6 @@ def _query(args, ctx, provider: TaskProvider) -> str:
 
 # ── 创建（#42）──────────────────────────────────────────
 
-def _validate_create(args) -> str | None:
-    if not str(args.get("title") or "").strip():
-        return "参数错误: title 必填"
-    priority = args.get("priority", "normal")
-    if priority not in ("low", "normal", "high"):
-        return "参数错误: priority 需为 low/normal/high"
-    return None
-
 
 def _create(args, ctx, provider: TaskProvider) -> str:
     error = _validate_create(args)
@@ -99,17 +114,14 @@ def _create(args, ctx, provider: TaskProvider) -> str:
 
 # ── 更新（#44）──────────────────────────────────────────
 
+
 def _update(args, ctx, provider: TaskProvider) -> str:
+    error = _validate_update(args)
+    if error:
+        return error
     task_id = str(args.get("task_id") or "").strip()
-    if not task_id:
-        return "参数错误: task_id 必填"
-    status = args.get("status")
-    if status is not None and status not in TASK_STATUSES:
-        return f"参数错误: status 需为 {list(TASK_STATUSES)} 之一"
     patch = {k: args.get(k) for k in
              ("status", "assignee", "title", "description") if args.get(k)}
-    if not patch:
-        return "参数错误: 至少提供 status/assignee/title/description 之一"
     task = provider.update(task_id, patch)
     if not task:
         return f"工单不存在: {task_id}"
