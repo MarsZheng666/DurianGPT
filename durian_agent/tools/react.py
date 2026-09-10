@@ -101,8 +101,11 @@ class ReActEngine:
         if role not in self._prompt_cache:
             self._prompt_cache[role] = build_system_prompt(self.registry, role)
         transcript = self._render_transcript(state)
+        from durian_agent.retry import RetryPolicy, with_retry
         try:
-            raw = self.llm.complete(self._prompt_cache[role], transcript)
+            raw = with_retry(
+                lambda: self.llm.complete(self._prompt_cache[role], transcript),
+                kind="llm", policy=RetryPolicy(llm=2))
         except Exception:
             return self._degrade("推理服务不可用，本次复杂任务未能完成。")
 
