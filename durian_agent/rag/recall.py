@@ -40,10 +40,20 @@ def _canonical_aliases() -> Dict[str, List[str]]:
     return mapping
 
 
-def build_queries(query: str) -> Dict[str, str]:
-    """原查询 → {original, canonical, expanded}（§23 跨语言扩展）。"""
+def build_queries(query: str, semantic: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
+    """原查询 → {original, canonical, expanded}（§23 跨语言扩展）。
+
+    §23 的三输入在此汇齐：
+    - Original Query：归一化后的原查询；
+    - Canonical Schema：可选注入（#3 的输出）——已有 entities 时直接复用，
+      避免图内二次检测；
+    - Terminology Dictionary：标准名 → 四语别名（_canonical_aliases）。
+    """
     original = normalize_input(query)
-    entities = detect_entities(original)
+    if semantic and isinstance(semantic.get("entities"), dict):
+        entities = {k: v for k, v in semantic["entities"].items() if v}
+    else:
+        entities = detect_entities(original)
     canonical_names = [name for name in entities.values() if name]
 
     canonical = original
