@@ -61,6 +61,7 @@ class GraphState(AgentState, total=False):
     rag_sources: list
     used_rag: bool
     pending_tool_calls: list
+    evidence_reasons: list
 
 
 class DurianAgentGraph:
@@ -165,9 +166,16 @@ class DurianAgentGraph:
         return {}
 
     def _evidence_check(self, state: AgentState) -> Dict[str, Any]:
-        """占位（#30 Phase2）：有融合证据即视为充分，五项判断后替换。"""
-        sufficient = bool(state.get("reranked_docs"))
-        return {"evidence_sufficient": sufficient}
+        """五项判断（§29，#30）：实体覆盖/核心条件/数值条件/来源冲突/单点。"""
+        from durian_agent.rag.evidence import check_evidence
+
+        result = check_evidence(
+            state.get("normalized_query", ""),
+            state.get("semantic"),
+            state.get("reranked_docs", []),
+        )
+        return {"evidence_sufficient": result["sufficient"],
+                "evidence_reasons": result["reasons"]}
 
     def _rewrite_query(self, state: AgentState) -> Dict[str, Any]:
         """占位（#28 Phase2）：无 LLM 改写，退化为扩展查询重试。"""
