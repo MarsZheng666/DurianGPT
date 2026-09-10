@@ -72,6 +72,46 @@ class TestTopology(unittest.TestCase):
         self.assertEqual(len(EXPECTED_NODES), 19)
 
 
+class TestContextInit(unittest.TestCase):
+    """任务 #9：ContextInit 节点（§3/§44：初始化权限、记忆、业务状态）。"""
+
+    def setUp(self):
+        graph, _ = make_graph()
+        self.node = graph._context_init
+
+    def test_defaults_filled_for_missing_keys(self):
+        patch = self.node({"original_query": "你好", "thread_id": "t",
+                           "user_id": "u", "role": "worker", "language": "zh"})
+        # §4 安全默认值全部补齐
+        self.assertEqual(patch["retrieval_count"], 0)
+        self.assertEqual(patch["retry_count"], 0)
+        self.assertEqual(patch["degrade_level"], 0)
+        self.assertFalse(patch["evidence_sufficient"])
+        self.assertEqual(patch["allowed_tools"], set())
+        self.assertEqual(patch["allowed_knowledge_partitions"], set())
+        self.assertEqual(patch["history_summary"], "")
+
+    def test_existing_values_not_overwritten(self):
+        patch = self.node({"original_query": "你好", "thread_id": "t",
+                           "role": "manager", "retrieval_count": 3,
+                           "evidence_sufficient": True})
+        # 已有值不进 patch（LangGraph 语义下即保留原值）
+        self.assertNotIn("role", patch)
+        self.assertNotIn("retrieval_count", patch)
+        self.assertNotIn("evidence_sufficient", patch)
+
+    def test_minimal_privilege_default_role(self):
+        patch = self.node({"original_query": "你好"})
+        self.assertEqual(patch["role"], "worker")
+
+    def test_human_message_appended(self):
+        """每个 invoke 落一条 HumanMessage（messages 通道被 LangGraph
+        预初始化为空列表，"not in state" 判不出首次——无条件追加）。"""
+        patch = self.node({"original_query": "什么是榴莲坐果"})
+        self.assertEqual(len(patch["messages"]), 1)
+        self.assertEqual(patch["messages"][0].content, "什么是榴莲坐果")
+
+
 class TestEdgeBranches(unittest.TestCase):
 
     def test_must_rag_happy_path(self):
