@@ -336,9 +336,16 @@ class DurianAgentGraph:
                     "confirmation_id": f"cfm-{uuid.uuid4().hex[:10]}",
                     **pending,
                 }
+                # §43：确认回合的回答附带判断依据（证据引用）——
+                # 综合判断已由 ReAct 基于这些证据作出
+                evidence_ids = [str(d.get("chunk_id"))
+                                for d in state.get("reranked_docs") or []
+                                if d.get("chunk_id")][:3]
+                evidence_note = (f"（判断依据：{' '.join(f'[{cid}]' for cid in evidence_ids)}）"
+                                 if evidence_ids else "")
                 patch["final_answer"] = (
                     f"以下操作需要您确认后才会执行：{pending['tool']} "
-                    f"{pending['args'].get('title', '')}".strip())
+                    f"{pending['args'].get('title', '')}{evidence_note}".strip())
                 patch["react_done"] = True
                 return patch
         patch["tool_calls"] = tool_log
