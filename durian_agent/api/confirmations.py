@@ -22,10 +22,12 @@ class ConfirmationStore:
         self._items: Dict[str, Dict[str, Any]] = {}
 
     def register(self, thread_id: str, tool: str, args: Dict[str, Any],
-                 confirmation_id: Optional[str] = None) -> str:
+                 confirmation_id: Optional[str] = None,
+                 role: str = "manager", user_id: str = "") -> str:
         cid = confirmation_id or f"cfm-{uuid.uuid4().hex[:10]}"
         self._items[cid] = {
-            "thread_id": thread_id, "tool": tool,
+            "thread_id": thread_id, "tool": tool, "role": role,
+            "user_id": user_id,
             "args": args or {}, "created": time.time(),
         }
         return cid

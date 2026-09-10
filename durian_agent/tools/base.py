@@ -14,15 +14,25 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-#: §39 角色工具表（数据化，可审计；alarm/user_context 未在 §39 分配，暂全员可用）
+#: §39 角色工具表（数据化，可审计）。admin = 全部注册工具；
+#: alarm_query 未在 §39 清单分配 → 仅 admin（待业务确认后调整）。
 ROLE_TOOLS: Dict[str, frozenset] = {
     "worker": frozenset({"agriculture_rag", "asset_query", "task_query"}),
     "manager": frozenset({
         "agriculture_rag", "asset_query", "task_query",
         "task_create", "task_update", "weather", "sensor",
     }),
-    # admin：§39 为「更多管理工具」，具体清单阶段五 #49 细化
 }
+
+
+def allowed_for_role(tool_name: str, role: str) -> bool:
+    """§39：当前角色是否可用该工具。user_context 全员可用；
+    admin 全量；未入表的角色按 worker（最小权限）。"""
+    if role == "admin":
+        return True
+    if tool_name == "user_context":
+        return True
+    return tool_name in ROLE_TOOLS.get(role, ROLE_TOOLS["worker"])
 
 
 @dataclass
@@ -93,10 +103,14 @@ class ToolRegistry:
     def specs(self) -> List[ToolSpec]:
         return [spec for spec, _ in self._tools.values()]
 
-    def spec_text(self) -> str:
-        """进 ReAct prompt 的工具清单文本。"""
+    def spec_text(self, role: str = "manager") -> str:
+        """进 ReAct prompt 的工具清单文本（§39：只列该角色允许的工具）。"""
+        from durian_agent.tools.base import allowed_for_role
+
         lines = []
         for spec, _fn in self._tools.values():
+            if not allowed_for_role(spec.name, role):
+                continue
             hint = f" args: {spec.args_hint}" if spec.args_hint else ""
             lines.append(f"- {spec.name}: {spec.description}{hint}")
         return "\n".join(lines)
@@ -112,6 +126,9 @@ class ToolRegistry:
         if entry is None:
             return f"工具不存在: {name}"
         spec, fn = entry
+        from durian_agent.tools.base import allowed_for_role
+        if not allowed_for_role(name, ctx.role):
+            return f"权限不足: 角色 {ctx.role} 不能使用 {name}"
         if spec.confirmation_required and not ctx.confirmed:
             return pending_confirmation_observation(name, args or {})
         try:

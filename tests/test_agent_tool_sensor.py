@@ -10,7 +10,7 @@ from durian_agent.tools.providers import InMemorySensors
 def run(args, **ctx):
     registry = ToolRegistry()
     sensor.register(registry, InMemorySensors())
-    return registry.execute("sensor", args, ToolContext(**ctx))
+    return registry.execute("sensor", args, ToolContext(role="manager", **ctx))
 
 
 class TestSensorTool(unittest.TestCase):

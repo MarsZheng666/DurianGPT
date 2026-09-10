@@ -49,8 +49,9 @@ Rules:
 """
 
 
-def build_system_prompt(registry: ToolRegistry) -> str:
-    return _SYSTEM_TEMPLATE.format(tool_specs=registry.spec_text())
+def build_system_prompt(registry: ToolRegistry, role: str = "manager") -> str:
+    """§39：只列该角色允许的工具——Agent 看不到未授权工具。"""
+    return _SYSTEM_TEMPLATE.format(tool_specs=registry.spec_text(role))
 
 
 def parse_step(text: str) -> Optional[Dict[str, Any]]:
@@ -85,7 +86,7 @@ class ReActEngine:
         self.llm = llm
         self.registry = registry
         self.max_steps = max_steps
-        self.system_prompt = build_system_prompt(registry)
+        self._prompt_cache: Dict[str, str] = {}   # role → prompt
 
     def step(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """一步推理。返回图状态补丁：
@@ -96,9 +97,12 @@ class ReActEngine:
         if state.get("react_steps", 0) >= self.max_steps:
             return self._degrade("已达到工具调用步数上限，未能完成任务编排。")
 
+        role = state.get("role", "worker")
+        if role not in self._prompt_cache:
+            self._prompt_cache[role] = build_system_prompt(self.registry, role)
         transcript = self._render_transcript(state)
         try:
-            raw = self.llm.complete(self.system_prompt, transcript)
+            raw = self.llm.complete(self._prompt_cache[role], transcript)
         except Exception:
             return self._degrade("推理服务不可用，本次复杂任务未能完成。")
 

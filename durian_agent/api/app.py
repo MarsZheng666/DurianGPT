@@ -98,7 +98,8 @@ def create_app(
             cid = _confirmations.register(
                 context["thread_id"], pending.get("tool", ""),
                 pending.get("args", {}),
-                confirmation_id=pending.get("confirmation_id"))
+                confirmation_id=pending.get("confirmation_id"),
+                role=context["role"], user_id=context["user_id"])
             pending = {**pending, "confirmation_id": cid}
         return ChatResponse(
             answer=state.get("final_answer", ""),
@@ -128,7 +129,9 @@ def create_app(
             raise HTTPException(status_code=409, detail="工具层不可用")
         from durian_agent.tools import ToolContext
         ctx = ToolContext(
-            thread_id=request.thread_id, confirmed=True)
+            thread_id=request.thread_id, confirmed=True,
+            role=item.get("role", "manager"),
+            user_id=item.get("user_id", ""))
         result = _graph.tools.execute(item["tool"], item["args"], ctx)
         return {"status": "executed",
                 "confirmation_id": request.confirmation_id,

@@ -17,7 +17,7 @@ def make(**ctx):
     provider = InMemoryTasks()
     registry = ToolRegistry()
     register_all(registry, provider)
-    return registry, provider, ToolContext(**ctx)
+    return registry, provider, ToolContext(role="manager", **ctx)
 
 
 class TestTaskQuery(unittest.TestCase):

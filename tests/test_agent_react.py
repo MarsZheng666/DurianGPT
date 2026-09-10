@@ -97,7 +97,7 @@ class TestReActFlow(unittest.TestCase):
             '{"final_answer": "未来三天第二天有雨（28mm），可推迟灌水。"}',
         ])
         result = graph.invoke("看下传感器数据和未来三天天气再决定浇水",
-                              thread_id="t-react-1")
+                              thread_id="t-react-1", role="manager")
         self.assertEqual(result["route"], "COMPLEX_TASK")
         self.assertIn("28mm", result["final_answer"])
         observations = [m for m in result["messages"]
@@ -129,7 +129,8 @@ class TestReActFlow(unittest.TestCase):
             '{"action": {"tool": "task_create", "args": '
             '{"title": "排水巡检", "orchard": "ORCHARD_3", "priority": "high"}}}',
         ])
-        result = graph.invoke("帮我创建一个排水巡检工单", thread_id="t-react-3")
+        result = graph.invoke("帮我创建一个排水巡检工单",
+                          thread_id="t-react-3", role="manager")
         pending = result.get("pending_confirmation")
         self.assertIsNotNone(pending, msg=result["final_answer"])
         self.assertEqual(pending["tool"], "task_create")

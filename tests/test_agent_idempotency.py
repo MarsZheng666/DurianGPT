@@ -19,7 +19,7 @@ from durian_agent.tools.task import register_all
 
 ARGS = {"title": "排水巡检", "orchard": "ORCHARD_3",
         "idempotency_key": "req-net-001"}
-CONFIRMED = ToolContext(confirmed=True)
+CONFIRMED = ToolContext(confirmed=True, role="manager")
 
 
 class TestIdempotencyAcceptance(unittest.TestCase):
@@ -56,7 +56,7 @@ class TestIdempotencyAcceptance(unittest.TestCase):
     def test_default_key_derived_from_thread_and_title(self):
         """缺省 key 由 thread+标题派生（同会话同标题重试去重）。"""
         registry, provider = self._registry()
-        ctx = ToolContext(confirmed=True, thread_id="t-42")
+        ctx = ToolContext(confirmed=True, role="manager", thread_id="t-42")
         registry.execute("task_create", {"title": "施肥作业"}, ctx)
         registry.execute("task_create", {"title": "施肥作业"}, ctx)
         self.assertEqual(len(provider.query()), 1)

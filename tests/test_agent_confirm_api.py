@@ -67,7 +67,9 @@ def make_app(tasks):
     user_context.register(registry)
 
     graph = DurianAgentGraph(
-        llm=ReactScriptLLM([CREATE_ACTION]), tools=registry)
+        llm=ReactScriptLLM([CREATE_ACTION]), tools=registry,
+        # confirm 端点以 ctx(role=manager) 执行；图内 ReAct 也用 manager
+    )
     return TestClient(create_app(graph=graph,
                                  confirmations=ConfirmationStore()))
 
@@ -79,8 +81,11 @@ class TestConfirmFlow(unittest.TestCase):
         self.client = make_app(self.tasks)
 
     def _chat_creates_pending(self):
-        resp = self.client.post("/api/chat", json={
-            "thread_id": "t-cfm", "message": "帮我创建一个排水巡检工单"})
+        resp = self.client.post(
+            "/api/chat",
+            json={"thread_id": "t-cfm",
+                  "message": "帮我创建一个排水巡检工单"},
+            headers={"X-Role": "manager", "X-User-Id": "u-mgr"})
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self.assertIsNotNone(body["pending_confirmation"])

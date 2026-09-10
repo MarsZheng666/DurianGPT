@@ -10,7 +10,7 @@ from durian_agent.tools.providers import InMemoryAlarms
 def run(args, **ctx):
     registry = ToolRegistry()
     register(registry, InMemoryAlarms())
-    return registry.execute("alarm_query", args, ToolContext(**ctx))
+    return registry.execute("alarm_query", args, ToolContext(role="admin", **ctx))
 
 
 class TestAlarmTool(unittest.TestCase):
