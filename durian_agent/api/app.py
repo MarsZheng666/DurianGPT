@@ -20,6 +20,7 @@ from typing import Any, List, Optional
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
+from durian_agent.api.confirmations import ConfirmationStore
 from durian_agent.api.gateway import ConversationGateway, GatewayError
 from durian_agent.graph import DurianAgentGraph
 
@@ -28,6 +29,12 @@ class ChatRequest(BaseModel):
     thread_id: Optional[str] = None
     message: str = Field(min_length=1, max_length=8000)
     language: Optional[str] = None
+
+
+class ConfirmRequest(BaseModel):
+    thread_id: str
+    confirmation_id: str
+    approved: bool
 
 
 class Source(BaseModel):
@@ -48,11 +55,13 @@ class ChatResponse(BaseModel):
 def create_app(
     graph: Optional[DurianAgentGraph] = None,
     gateway: Optional[ConversationGateway] = None,
+    confirmations: Optional[ConfirmationStore] = None,
 ) -> FastAPI:
     """应用工厂：图与网关均可注入（测试替身/生产装配各取所需）。"""
     app = FastAPI(title="Durian Agent", version="0.1.0")
     _graph = graph if graph is not None else DurianAgentGraph()
     _gateway = gateway if gateway is not None else ConversationGateway()
+    _confirmations = confirmations if confirmations is not None else ConfirmationStore()
 
     @app.get("/health")
     def health() -> dict:
@@ -83,6 +92,14 @@ def create_app(
             role=context["role"],
             language=language,
         )
+        # §41：图侧拦截的敏感操作 → 注册确认存储并回传给客户端
+        pending = state.get("pending_confirmation")
+        if pending:
+            cid = _confirmations.register(
+                context["thread_id"], pending.get("tool", ""),
+                pending.get("args", {}),
+                confirmation_id=pending.get("confirmation_id"))
+            pending = {**pending, "confirmation_id": cid}
         return ChatResponse(
             answer=state.get("final_answer", ""),
             route=state.get("route", "SIMPLE"),
@@ -91,8 +108,31 @@ def create_app(
                          ("document_id", "chunk_id", "title", "section")})
                 for s in state.get("rag_sources", [])
             ],
-            pending_confirmation=None,
+            pending_confirmation=pending,
             thread_id=context["thread_id"],
         )
+
+    @app.post("/api/chat/confirm")
+    def confirm(request: ConfirmRequest) -> dict:
+        """§41：approved=true → 以确认态执行；false → 取消。"""
+        item = _confirmations.get(request.confirmation_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="确认请求不存在或已处理")
+        if item["thread_id"] != request.thread_id:
+            raise HTTPException(status_code=403, detail="确认请求不属于该会话")
+        _confirmations.pop(request.confirmation_id)
+        if not request.approved:
+            return {"status": "cancelled",
+                    "confirmation_id": request.confirmation_id}
+        if _graph.tools is None:
+            raise HTTPException(status_code=409, detail="工具层不可用")
+        from durian_agent.tools import ToolContext
+        ctx = ToolContext(
+            thread_id=request.thread_id, confirmed=True)
+        result = _graph.tools.execute(item["tool"], item["args"], ctx)
+        return {"status": "executed",
+                "confirmation_id": request.confirmation_id,
+                "tool": item["tool"],
+                "result": result}
 
     return app
