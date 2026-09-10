@@ -125,3 +125,59 @@ class InMemoryAlarms:
         return [a for a in self._ALARMS
                 if (orchard is None or a["orchard"] == orchard)
                 and (status is None or a["status"] == status)]
+
+
+# ── 工单（含 §42 幂等）──────────────────────────────────────
+
+TASK_STATUSES = ("pending", "in_progress", "done", "cancelled")
+
+
+class TaskProvider(Protocol):
+    def query(self, task_id: Optional[str] = None, status: Optional[str] = None,
+              orchard: Optional[str] = None) -> List[Dict]: ...
+    def create(self, draft: Dict, idempotency_key: str) -> Dict: ...
+    def update(self, task_id: str, patch: Dict) -> Optional[Dict]: ...
+
+
+class InMemoryTasks:
+    """确定性工单存储 mock（含幂等去重）。"""
+
+    def __init__(self):
+        self._tasks: List[Dict] = []
+        self._by_idem: Dict[str, str] = {}
+        self._seq = 100
+
+    def query(self, task_id=None, status=None, orchard=None) -> List[Dict]:
+        return [t for t in self._tasks
+                if (task_id is None or t["task_id"] == task_id)
+                and (status is None or t["status"] == status)
+                and (orchard is None or t.get("orchard") == orchard)]
+
+    def create(self, draft: Dict, idempotency_key: str) -> Dict:
+        # §42：同 key 重试返回已建工单，不重复创建
+        existing = self._by_idem.get(idempotency_key)
+        if existing:
+            return next(t for t in self._tasks if t["task_id"] == existing)
+        self._seq += 1
+        task = {
+            "task_id": f"T-{self._seq}",
+            "title": draft.get("title", ""),
+            "description": draft.get("description", ""),
+            "orchard": draft.get("orchard", ""),
+            "plot": draft.get("plot", ""),
+            "priority": draft.get("priority", "normal"),
+            "status": "pending",
+            "created_by": draft.get("created_by", ""),
+        }
+        self._tasks.append(task)
+        self._by_idem[idempotency_key] = task["task_id"]
+        return task
+
+    def update(self, task_id: str, patch: Dict) -> Optional[Dict]:
+        for task in self._tasks:
+            if task["task_id"] == task_id:
+                for key in ("status", "assignee", "title", "description"):
+                    if key in patch and patch[key] is not None:
+                        task[key] = patch[key]
+                return task
+        return None

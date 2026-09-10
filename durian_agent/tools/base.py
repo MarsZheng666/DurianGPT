@@ -30,6 +30,8 @@ class ToolSpec:
     name: str
     description: str
     args_hint: str = ""
+    #: §41 敏感操作：需用户确认后才执行（Registry 强制拦截）
+    confirmation_required: bool = False
 
 
 @dataclass
@@ -41,6 +43,8 @@ class ToolContext:
     language: str = "zh"
     orchard_scope: List[str] = field(default_factory=list)
     state: Optional[Dict[str, Any]] = None
+    #: §41：经 /api/chat/confirm 确认后的执行置 True
+    confirmed: bool = False
 
 
 ToolFn = Callable[[Dict[str, Any], ToolContext], str]
@@ -48,6 +52,30 @@ ToolFn = Callable[[Dict[str, Any], ToolContext], str]
 
 class ToolError(Exception):
     pass
+
+
+#: §41 待确认 Observation 协议（ReAct 层与确认 API 由此衔接）
+PENDING_CONFIRMATION_PREFIX = "PENDING_CONFIRMATION: "
+
+
+def pending_confirmation_observation(tool: str, args: Dict[str, Any]) -> str:
+    import json
+
+    return (PENDING_CONFIRMATION_PREFIX
+            + json.dumps({"tool": tool, "args": args}, ensure_ascii=False))
+
+
+def parse_pending_confirmation(observation: str) -> Optional[Dict[str, Any]]:
+    """识别待确认 Observation；非该协议返回 None。"""
+    if isinstance(observation, str) and observation.startswith(PENDING_CONFIRMATION_PREFIX):
+        import json
+
+        try:
+            parsed = json.loads(observation[len(PENDING_CONFIRMATION_PREFIX):])
+        except json.JSONDecodeError:
+            return None
+        return parsed if isinstance(parsed, dict) else None
+    return None
 
 
 class ToolRegistry:
@@ -75,11 +103,17 @@ class ToolRegistry:
 
     def execute(self, name: str, args: Dict[str, Any],
                 ctx: ToolContext) -> str:
-        """执行工具；未注册/执行异常都转成错误 Observation（不逃逸）。"""
+        """执行工具；未注册/执行异常都转成错误 Observation（不逃逸）。
+
+        §41 强制拦截：confirmation_required 的工具在 ctx.confirmed
+        为假时**不执行**，返回待确认 Observation（含操作草稿）。
+        """
         entry = self._tools.get(name)
         if entry is None:
             return f"工具不存在: {name}"
-        _, fn = entry
+        spec, fn = entry
+        if spec.confirmation_required and not ctx.confirmed:
+            return pending_confirmation_observation(name, args or {})
         try:
             return fn(args or {}, ctx)
         except ToolError as exc:
