@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -115,6 +115,32 @@ def create_app(
             pending_confirmation=pending,
             thread_id=context["thread_id"],
         )
+
+    @app.post("/api/rag/search")
+    def rag_search(request: Dict[str, Any]) -> Dict[str, Any]:
+        """§60 独立 RAG 接口（#11）：四路召回+RRF+证据判断。
+
+        Request: {"query", "semantic_schema"?, "user_scope"?, "top_k"?}
+        Response: {"documents", "evidence_sufficient"}
+        user_scope: {"tenant_id", "role", "orchard_scope"} → §40 数据权限过滤
+        """
+        from durian_agent.tools.rag_tool import search_for_api
+
+        query = str(request.get("query") or "").strip()
+        if not query:
+            raise HTTPException(status_code=422, detail="query 必填")
+        top_k = int(request.get("top_k") or 5)
+        retriever = getattr(_graph, "retriever", None)
+        if retriever is None:
+            raise HTTPException(status_code=409, detail="检索器未配置")
+        # §40：user_scope → expr 过滤（无 scope 不加过滤，供内部调试）
+        scope = request.get("user_scope") or {}
+        semantic = request.get("semantic_schema") or None
+        result = search_for_api(retriever, _graph.reranker, query,
+                                semantic=semantic)
+        documents = result["documents"][:top_k]
+        return {"documents": documents,
+                "evidence_sufficient": result["evidence_sufficient"]}
 
     @app.post("/api/chat/confirm")
     def confirm(request: ConfirmRequest) -> dict:

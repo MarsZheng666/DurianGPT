@@ -143,3 +143,28 @@ class TestOfflineMode(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRagSearchEndpoint(unittest.TestCase):
+    """任务 #11：POST /api/rag/search（§60 独立 RAG 契约）。"""
+
+    def test_search_returns_documents_and_evidence(self):
+        client = make_client(retriever_result=HITS)
+        resp = client.post("/api/rag/search", json={
+            "query": "炭疽病怎么防治", "top_k": 2})
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertIn("documents", body)
+        self.assertIn("evidence_sufficient", body)
+        self.assertLessEqual(len(body["documents"]), 2)
+        self.assertEqual(body["documents"][0]["chunk_id"], "c1")
+
+    def test_empty_query_422(self):
+        client = make_client()
+        resp = client.post("/api/rag/search", json={"query": ""})
+        self.assertEqual(resp.status_code, 422)
+
+    def test_no_retriever_409(self):
+        client = TestClient(create_app())   # 离线模式无检索器
+        resp = client.post("/api/rag/search", json={"query": "x"})
+        self.assertEqual(resp.status_code, 409)
