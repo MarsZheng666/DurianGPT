@@ -35,6 +35,8 @@ logger = logging.getLogger("durian--langgraph")
 
 
 class DurianGraphState(TypedDict, total=False):
+    # 【流程核心】messages 挂在 add_messages reducer 上：节点返回新 id 消息=追加，
+    # 同 id 消息=原地更新，RemoveMessage=删除（见 _trim_memory_node）。
     messages: Annotated[List[AnyMessage], add_messages]
     turn_messages: List[Dict[str, Any]]
     requested_language: str
@@ -553,6 +555,8 @@ class DurianLangGraphRuntime:
         builder.add_edge("compose", "generate")
         builder.add_edge("generate", "trim_memory")
         builder.add_edge("trim_memory", END)
+        # 【流程核心】compile() 把"节点+边"编译成可执行图（Pregel 实例），
+        # 并绑定 SqliteSaver：此后每个 superstep 结束都会按 thread_id 把整个 state 落盘。
         return builder.compile(checkpointer=self._saver, name="durian_conversation")
 
     @staticmethod
@@ -750,6 +754,7 @@ class DurianLangGraphRuntime:
         return replies.get(response_language, replies["zh"])
 
     def _route_node(self, state: DurianGraphState) -> Dict[str, Any]:
+        """【流程 1】理解问题：意图分类 → 上下文消解 → 产出 resolved_query / rag_query / 工作记忆。"""
         route_started = time.perf_counter()
         try:
             get_stream_writer()({"type": "status", "phase": "route_start", "message": "正在理解问题..."})
@@ -823,6 +828,8 @@ class DurianLangGraphRuntime:
             clean_followup_query.strip()
         )
 
+        # 【流程 1.1】意图分类，优先级从上到下：casual 短路；exact 精确事实题不许继承
+        # 历史；generic_followup 走正则识别；其余交给 adapter.route_context 语义路由。
         if casual_mode:
             route = {
                 "intent": "casual",
@@ -874,6 +881,8 @@ class DurianLangGraphRuntime:
             and not (generic_followup and generic_followup_fast_path)
             and (not exact_mode or contextual_exact_mode)
         ):
+            # 【流程 1.2】语义上下文消解：从主题卡片判断是否在继续上一话题；
+            # 选出 active card 会把 intent 升级为 follow_up（见下方 selected 分支）。
             context_resolution = dict(
                 self.adapter.resolve_context(
                     query,
@@ -921,6 +930,7 @@ class DurianLangGraphRuntime:
                     if summary:
                         latest_visible_card["last_answer_summary"] = summary[:520]
                 break
+        # 【流程 1.3】补全 resolved_query：把"详细一点"重写成"上一主题：详细一点"，防歧义。
         if generic_followup and clean_followup_subject:
             resolved_query = f"{clean_followup_subject}：{query}".strip()
         elif context_resolution.get("selected"):
@@ -977,6 +987,8 @@ class DurianLangGraphRuntime:
             and not generic_followup
         )
 
+        # 【流程 1.4】检索查询 ≠ 用户原话：模糊追问会被重构成上一轮稳定的用户问题，
+        # 绝不能拿上一轮 AI 回答当检索输入（否则自我强化幻觉，见 build_followup_retrieval_query）。
         if generic_followup and clean_followup_query and not route.get("use_image_context"):
             rag_query = clean_followup_query
         elif context_resolution.get("selected"):
@@ -1067,6 +1079,7 @@ class DurianLangGraphRuntime:
         # One factual path: every substantive Durian turn goes through
         # RAGFlow. Context routing may rewrite the query, but it may not bypass
         # retrieval. Only conversational fast paths and clarification skip it.
+        # 【流程 1.5】只有 greeting/casual/待澄清可跳过检索——一切实质问题必须走 RAG。
         rag_allowed = bool(
             route.get("intent") not in {"greeting", "casual"}
             and not clarification_needed
@@ -1120,6 +1133,7 @@ class DurianLangGraphRuntime:
         }
 
     def _retrieve_node(self, state: DurianGraphState) -> Dict[str, Any]:
+        """【流程 2】检索：很薄的一层，领域逻辑全在 adapter；产出 evidence / evidence_quality。"""
         started = time.perf_counter()
         route = state.get("route_decision") or {}
         query = str(state.get("rag_query") or state.get("user_query") or "")
@@ -1161,6 +1175,7 @@ class DurianLangGraphRuntime:
         }
 
     def _compose_node(self, state: DurianGraphState) -> Dict[str, Any]:
+        """【流程 3】组装 prompt：裁剪后的历史 + 检索证据 → 最终 LLM 消息列表（≤ max_prompt_messages 条）。"""
         if (state.get("route_decision") or {}).get("intent") in {"greeting", "casual"}:
             return {"final_messages": []}
         if bool(state.get("clarification_needed")):
@@ -1174,6 +1189,7 @@ class DurianLangGraphRuntime:
         return {"final_messages": list(final_messages or [])}
 
     def _generate_node(self, state: DurianGraphState) -> Dict[str, Any]:
+        """【流程 4】生成：一条优先级递降的"逃生梯"，多数分支不调 LLM 直接给出答案。"""
         writer = get_stream_writer()
         generation_started = time.perf_counter()
         first_content_logged = False
@@ -1272,6 +1288,8 @@ class DurianLangGraphRuntime:
         writer({"type": "status", "phase": "generation_start", "message": "正在生成回答..."})
 
         try:
+            # 逃生梯从上到下：greeting/casual 固定话术 → 澄清模板 → exact 从证据抄答案
+            # （绝不靠模型记忆）→ 证据抽取 → 免责声明+通用生成 → 兜底才是真正的流式 LLM。
             if route.get("intent") == "greeting":
                 full_response = self.adapter.greeting_reply(response_language)
                 writer({"type": "content", "content": full_response})
@@ -1380,6 +1398,7 @@ class DurianLangGraphRuntime:
                     dict(state.get("generation") or {}),
                     response_language,
                 )
+                # 每个 token chunk 经 get_stream_writer 发出，穿透图直达 stream_turn 再推给前端 SSE。
                 for chunk in chunks:
                     if chunk:
                         text = str(chunk)
@@ -1405,6 +1424,7 @@ class DurianLangGraphRuntime:
             ):
                 active_context_card = None
             else:
+                # 生成主题卡片（答案摘要）：下一轮 follow_up 的上下文消解就靠它。
                 active_context_card = self.adapter.build_context_card(
                     str(
                         state.get("resolved_query")
@@ -1472,6 +1492,7 @@ class DurianLangGraphRuntime:
                     ),
                 }
             )
+            # 返回 assistant 消息 → add_messages reducer 把它追加进 checkpoint（state 的核心合并规则）。
             return {
                 "messages": [assistant_message],
                 "answer": clean_response,
@@ -1488,6 +1509,7 @@ class DurianLangGraphRuntime:
             return {"answer": "", "active_context_card": None, "error": str(exc)}
 
     def _trim_memory_node(self, state: DurianGraphState) -> Dict[str, Any]:
+        """【流程 5】裁剪：消息超过上限时用 RemoveMessage 删最旧的（add_messages reducer 的删除能力）。"""
         messages = list(state.get("messages") or [])
         if len(messages) <= self.max_memory_messages:
             return {}
@@ -1514,6 +1536,8 @@ class DurianLangGraphRuntime:
         use_rag: bool,
         generation: Dict[str, Any],
     ) -> Iterator[Dict[str, Any]]:
+        # 【流程 0】入口：FastAPI 每收到一轮对话调用一次。
+        # thread_id 是记忆的钥匙——get_state 按 thread_id 从 checkpoint 读出上一轮的完整 state。
         config = {"configurable": {"thread_id": str(thread_id)}}
         snapshot = self.graph.get_state(config)
         snapshot_values = dict(snapshot.values or {})
@@ -1524,6 +1548,8 @@ class DurianLangGraphRuntime:
             key = (str(payload.get("role") or ""), str(payload.get("content") or ""))
             existing_by_content[key] = payload
 
+        # 【流程 0.2】消息对账：前端会重放最近几轮可见历史，用 (role, content) 对齐
+        # checkpoint 里的旧消息并复用其 id，让 add_messages 做原地更新而非重复追加。
         normalized_payloads: List[Dict[str, Any]] = []
         for index, original in enumerate(messages):
             if not original.get("content"):
@@ -1567,10 +1593,13 @@ class DurianLangGraphRuntime:
                 latest_user_query = str(payload.get("content") or "").strip()
                 break
         user_id = self._user_id_from_thread(thread_id)
+        # 【流程 0.3】写长期记忆：从用户话中抽显式陈述（"请记住…/我在…"）存入
+        # 独立的 user_memories.sqlite；含问号的句子和密码类敏感词会被拒收。
         memory_event = self.user_memory_store.apply_user_message(
             user_id,
             latest_user_query,
         )
+        # 【流程 0.4】读长期记忆：按词重叠打分取回最相关的 6 条，随 graph_input 进图。
         long_term_memories = self.user_memory_store.retrieve(
             user_id,
             latest_user_query,
@@ -1590,6 +1619,8 @@ class DurianLangGraphRuntime:
         event_count = 0
         completed = False
         try:
+            # 【流程 0.5】驱动图执行：route→retrieve→compose→generate→trim_memory 线性跑完。
+            # stream_mode="custom" 只透传节点内 get_stream_writer() 发出的事件（状态提示/流式 token）。
             for event in self.graph.stream(
                 graph_input,
                 config=config,
@@ -1599,6 +1630,8 @@ class DurianLangGraphRuntime:
                     event_count += 1
                     yield event
             completed = True
+            # 【流程收尾】图跑完后再次 get_state 取最终 state（已被 SqliteSaver 落盘），
+            # 发 final 事件给前端；下一轮 get_state 读到的就是这份 state，记忆闭环。
             final_snapshot = self.graph.get_state(config)
             final_values = dict(final_snapshot.values or {})
             answer = str(final_values.get("answer") or "")
