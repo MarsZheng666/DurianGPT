@@ -332,8 +332,24 @@ class DurianAgentGraph:
         return {}
 
     def _memory_compress(self, state: GraphState) -> Dict[str, Any]:
-        """占位（#53 Phase4：滑动窗口与摘要）。"""
-        return {}
+        """§35（#55）：窗口切分 + 溢出摘要 + RemoveMessage 收缩。"""
+        from langchain_core.messages import RemoveMessage
+
+        from durian_agent.memory.window import compress
+
+        result = compress(
+            state.get("messages") or [],
+            previous_summary=state.get("history_summary", ""),
+            llm=self.llm,
+        )
+        patch: Dict[str, Any] = {
+            "recent_messages": result["recent"],
+            "history_summary": result["history_summary"],
+        }
+        if result["trimmed_ids"]:
+            patch["messages"] = [RemoveMessage(id=mid)
+                                 for mid in result["trimmed_ids"]]
+        return patch
 
     def _answer(self, state: GraphState) -> Dict[str, Any]:
         """MUST_RAG 终点 / COMPLEX 收尾（ReAct 已产出回答时透传+抽引用）。"""
