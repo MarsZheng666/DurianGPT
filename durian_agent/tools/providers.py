@@ -68,3 +68,33 @@ class InMemorySensors:
         if data:
             return {**data, "orchard": orchard, "plot": plot}
         return None
+
+
+class AssetProvider(Protocol):
+    def query(self, asset_type: str,
+              orchard: Optional[str] = None) -> List[Dict]: ...
+
+
+class InMemoryAssets:
+    """确定性资产 mock：园区/地块/设备/人员。"""
+
+    _ASSETS = [
+        {"type": "orchard", "id": "ORCHARD_3", "name": "三号园", "area_ha": 12.5},
+        {"type": "orchard", "id": "ORCHARD_5", "name": "五号园", "area_ha": 8.0},
+        {"type": "plot", "id": "PLOT_5", "orchard": "ORCHARD_3",
+         "cultivar": "猫山王", "trees": 86},
+        {"type": "plot", "id": "PLOT_12", "orchard": "ORCHARD_3",
+         "cultivar": "金枕", "trees": 120},
+        {"type": "device", "id": "SENSOR-31", "orchard": "ORCHARD_3",
+         "kind": "土壤湿度传感器", "status": "在线"},
+        {"type": "device", "id": "SENSOR-32", "orchard": "ORCHARD_3",
+         "kind": "气象站", "status": "在线"},
+        {"type": "worker", "id": "W-7", "orchard": "ORCHARD_3",
+         "name": "阿明", "role": "果园技术员"},
+    ]
+
+    def query(self, asset_type: str, orchard: Optional[str] = None) -> List[Dict]:
+        return [a for a in self._ASSETS
+                if a["type"] == asset_type
+                and (orchard is None or a.get("orchard") == orchard
+                     or a.get("id") == orchard)]
