@@ -68,7 +68,7 @@ class ToolRegistry:
     def spec_text(self) -> str:
         """进 ReAct prompt 的工具清单文本。"""
         lines = []
-        for spec in self._tools.values():
+        for spec, _fn in self._tools.values():
             hint = f" args: {spec.args_hint}" if spec.args_hint else ""
             lines.append(f"- {spec.name}: {spec.description}{hint}")
         return "\n".join(lines)
