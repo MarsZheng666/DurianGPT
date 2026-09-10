@@ -72,6 +72,7 @@ def create_app(
         request: ChatRequest,
         x_user_id: Optional[str] = Header(default=None),
         x_role: Optional[str] = Header(default=None),
+        x_tenant_id: Optional[str] = Header(default=None),
     ) -> ChatResponse:
         try:
             context = _gateway.resolve_context(
@@ -79,6 +80,7 @@ def create_app(
                 role=x_role,
                 thread_id=request.thread_id,
                 language=request.language,
+                tenant_id=x_tenant_id,
             )
         except GatewayError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
@@ -91,6 +93,7 @@ def create_app(
             user_id=context["user_id"],
             role=context["role"],
             language=language,
+            tenant_id=context["tenant_id"],
         )
         # §41：图侧拦截的敏感操作 → 注册确认存储并回传给客户端
         pending = state.get("pending_confirmation")

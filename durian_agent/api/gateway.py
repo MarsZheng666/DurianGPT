@@ -60,6 +60,7 @@ class ConversationGateway:
         role: Optional[str] = None,
         thread_id: Optional[str] = None,
         language: Optional[str] = None,
+        tenant_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """校验并归一请求上下文。
 
@@ -75,9 +76,16 @@ class ConversationGateway:
         if normalized_lang not in ("auto", "zh", "en", "th", "ms"):
             raise GatewayError(f"非法语言: {language!r}，可选: auto/zh/en/th/ms")
 
+        thread = self.registry.resolve(thread_id)
+        normalized_tenant = (tenant_id or "default").strip() or "default"
+        user = (user_id or "anonymous").strip() or "anonymous"
         return {
-            "user_id": (user_id or "anonymous").strip() or "anonymous",
+            "user_id": user,
             "role": normalized_role,
-            "thread_id": self.registry.resolve(thread_id),
+            "thread_id": thread,
+            # §37：Checkpoint key = tenantId:userId:threadId——
+            # 同名 thread 在不同用户/租户间完全隔离
+            "checkpoint_thread_id": f"{normalized_tenant}:{user}:{thread}",
+            "tenant_id": normalized_tenant,
             "language": normalized_lang,
         }

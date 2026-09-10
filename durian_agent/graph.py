@@ -493,13 +493,19 @@ class DurianAgentGraph:
 
     def invoke(self, query: str, *, thread_id: str = "default",
                user_id: str = "", role: str = "worker", language: str = "zh",
-               config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        merged_config = {"configurable": {"thread_id": thread_id}}
+               tenant_id: str = "", config: Optional[Dict[str, Any]] = None,
+               ) -> Dict[str, Any]:
+        # §37：Checkpoint key = tenantId:userId:threadId（缺省维用占位）
+        tenant = tenant_id or "default"
+        user = user_id or "anonymous"
+        checkpoint_key = f"{tenant}:{user}:{thread_id}"
+        merged_config = {"configurable": {"thread_id": checkpoint_key}}
         if config:
             merged_config.update(config)
         result = self.graph.invoke(
             {"original_query": query, "thread_id": thread_id,
-             "user_id": user_id, "role": role, "language": language},
+             "user_id": user_id, "role": role, "language": language,
+             "tenant_id": tenant},
             config=merged_config,
         )
         return result
