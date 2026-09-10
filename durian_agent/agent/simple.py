@@ -12,9 +12,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Sequence
+
+from langchain_core.messages import AnyMessage
 
 from durian_agent.llm import LLMProvider
+from durian_agent.memory.budget import TokenBudget
+from durian_agent.memory.context import build_context
 
 SIMPLE_SYSTEM_PROMPT = """You are a helpful assistant for a durian plantation team.
 Answer the user's question directly and concisely in the user's language
@@ -43,12 +47,19 @@ class SimpleAgent:
         self,
         query: str,
         rag_fn: Optional[Callable[[str], Dict[str, Any]]] = None,
+        *,
+        history_summary: str = "",
+        recent_messages: Sequence[AnyMessage] = (),
+        business_state: str = "",
+        budget: Optional[TokenBudget] = None,
     ) -> Dict[str, Any]:
         """回答 SIMPLE 类问题。
 
         rag_fn: 可选的检索函数（query → {"documents": [...], "evidence_sufficient": bool}，
         即 §60 /api/rag/search 契约）。证据充分才注入；检索服务自身的
         Evidence Check 决定「需要知识」与否。
+        记忆上下文（§33 五段式，#51）：history_summary / recent_messages /
+        business_state 经 TokenBudget 分节组装进 system。
         """
         evidence_docs: List[Dict[str, Any]] = []
         if rag_fn is not None:
@@ -59,7 +70,14 @@ class SimpleAgent:
             except Exception:
                 evidence_docs = []  # SIMPLE 路径检索失败不阻塞直答
 
-        system = SIMPLE_SYSTEM_PROMPT
+        system = build_context(
+            system_prompt=SIMPLE_SYSTEM_PROMPT,
+            query=query,
+            summary=history_summary,
+            recent_messages=recent_messages,
+            business_state=business_state,
+            budget=budget,
+        )
         if evidence_docs:
             evidence_text = "\n".join(
                 f"- [{doc.get('document_id', '?')}] {doc.get('text', '')}"

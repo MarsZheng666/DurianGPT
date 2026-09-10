@@ -241,9 +241,14 @@ class DurianAgentGraph:
         if self._simple is None:
             answer = "（SIMPLE 路径需要 LLM，当前未配置。）"
             return {"final_answer": answer, "messages": [AIMessage(content=answer)]}
+        from durian_agent.memory.context import business_state_from_graph_state
+
         result = self._simple.answer(
             state.get("normalized_query", ""),
             rag_fn=self._rag_search_helper,
+            history_summary=state.get("history_summary", ""),
+            recent_messages=state.get("recent_messages") or [],
+            business_state=business_state_from_graph_state(state),
         )
         return {"final_answer": result["answer"],
                 "rag_sources": result["sources"],
