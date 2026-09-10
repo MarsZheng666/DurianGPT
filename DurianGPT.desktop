@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=DurianGPT
-Comment=Start DurianGPT backend and frontend
-Terminal=true
-WorkingDirectory=/home/admin01/桌面/Desktop/durian-training
-Exec=bash -lc 'cd "/home/admin01/桌面/Desktop/durian-training" && bash start_all.sh; echo; echo "Press Enter to close"; read'
-Icon=utilities-terminal
-Categories=Development;
