@@ -49,9 +49,14 @@ _DOCS_HEADER = "\nPreviously retrieved documents (insufficient, rewrite to searc
 
 
 def rule_rewrite(query: str, semantic: Optional[Dict[str, Any]] = None) -> str:
-    """第一层规则改写：标准化 + 实体标准名（build_queries 的 canonical 形态）。"""
+    """第一层规则改写（§24 四要素）：标准化 + 实体标准名 + 术语别名扩展。
+
+    用 expanded 形态（原查询 + 实体标准名 + 四语别名）：重试轮次的查询
+    必须与首轮不同——实体已用标准名书写时 canonical 会与原查询相同，
+    白白消耗一次检索机会。
+    """
     queries = build_queries(query, semantic)
-    return queries["canonical"]
+    return queries["expanded"] or queries["canonical"]
 
 
 def _numbers_in(text: str) -> set:

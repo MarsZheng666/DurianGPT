@@ -54,7 +54,7 @@ class TestEvidenceRetryLoop(unittest.TestCase):
         """首轮空 → 改写重查命中 → 正常回答（§63 循环的核心价值）。"""
         retriever = FlakyRetriever([None, HITS_SECOND_ROUND])
         graph = DurianAgentGraph(
-            llm=FakeLLM("波尔多液可防治炭疽病。"), retriever=retriever)
+            llm=FakeLLM("波尔多液可防治炭疽病 [c1]。"), retriever=retriever)
         result = graph.invoke("炭疽病用什么药防治", thread_id="t-rescue")
         self.assertTrue(result["evidence_sufficient"])
         self.assertEqual(result["retrieval_count"], 2)

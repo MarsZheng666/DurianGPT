@@ -32,9 +32,13 @@ HITS = {
             {"chunk_id": "c1", "score": 0.9, "text": "炭疽病用波尔多液防治",
              "record": {"document_id": "植保手册"}},
         ],
-        "bm25_original": [], "dense_original": [], "bm25_expanded": [],
+        "bm25_original": [
+            {"chunk_id": "c2", "score": 1.5, "text": "炭疽病雨季高发，注意排水通风",
+             "record": {"document_id": "栽培指南"}},
+        ],
+        "dense_original": [], "bm25_expanded": [],
     },
-    "rankings": {"dense_canonical": ["c1"], "bm25_original": [],
+    "rankings": {"dense_canonical": ["c1"], "bm25_original": ["c2"],
                  "dense_original": [], "bm25_expanded": []},
 }
 
@@ -66,7 +70,7 @@ class TestChatContract(unittest.TestCase):
         self.assertIsNone(body["pending_confirmation"])
 
     def test_must_rag_with_sources(self):
-        client = make_client(retriever_result=HITS, llm_response="波尔多液可防治。")
+        client = make_client(retriever_result=HITS, llm_response="波尔多液可防治 [c1]。")
         resp = client.post("/api/chat", json={
             "thread_id": "t-2", "message": "炭疽病用什么农药防治"})
         body = resp.json()

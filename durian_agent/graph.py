@@ -265,21 +265,25 @@ class DurianAgentGraph:
         return {}
 
     def _answer(self, state: AgentState) -> Dict[str, Any]:
-        """MUST_RAG 终点：Final Generation（§30 证据约束生成）。"""
+        """MUST_RAG 终点：Final Generation（§30 证据约束生成 + §31 引用一一对应）。"""
         docs = state.get("reranked_docs", [])
         if state.get("evidence_sufficient") and docs and self.llm is not None:
-            from durian_agent.rag.generation import generate_grounded_answer
-            answer = generate_grounded_answer(
+            from durian_agent.rag.generation import generate_with_citations
+
+            result = generate_with_citations(
                 self.llm, state.get("normalized_query", ""), docs)
+            cited = set(result["cited_chunk_ids"])
+            # §31：sources 只含被回答实际引用的证据（未引用的不进）
             sources = [
-                {"document_id": d.get("record", {}).get("document_id", d.get("document_id", "?")),
+                {"document_id": d.get("record", {}).get("document_id",
+                                                        d.get("document_id", "?")),
                  "chunk_id": d["chunk_id"],
                  "title": d.get("record", {}).get("document_id", ""),
                  "section": ""}
-                for d in docs[:3]
+                for d in docs if d["chunk_id"] in cited
             ]
-            return {"final_answer": answer, "rag_sources": sources,
-                    "messages": [AIMessage(content=answer)]}
+            return {"final_answer": result["answer"], "rag_sources": sources,
+                    "messages": [AIMessage(content=result["answer"])]}
         return {}   # 证据不足由 fallback 处理（evidence_check 已分流，不会到此）
 
     def _fallback(self, state: AgentState) -> Dict[str, Any]:

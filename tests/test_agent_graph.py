@@ -56,7 +56,7 @@ class FakeRetriever:
         return self.result
 
 
-def make_graph(retriever_result=None, llm_response="依据证据回答。"):
+def make_graph(retriever_result=None, llm_response="依据证据回答 [c1]。"):
     retriever = FakeRetriever(retriever_result)
     graph = DurianAgentGraph(
         llm=FakeLLM(llm_response), retriever=retriever, max_retrievals=2)
@@ -119,7 +119,7 @@ class TestEdgeBranches(unittest.TestCase):
         result = graph.invoke("炭疽病用什么农药防治，浓度多少倍", thread_id="t1")
         self.assertEqual(result["route"], "MUST_RAG")
         self.assertTrue(result["evidence_sufficient"])
-        self.assertEqual(result["final_answer"], "依据证据回答。")
+        self.assertEqual(result["final_answer"], "依据证据回答 [c1]。")
         # 引用返回（§31）
         self.assertTrue(result["rag_sources"])
         self.assertEqual(result["rag_sources"][0]["chunk_id"], "c1")
