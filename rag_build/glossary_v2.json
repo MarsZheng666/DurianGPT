@@ -1,0 +1,4129 @@
+{
+ "_meta": {
+  "purpose": "§10 canonical_id 术语体系（由 glossary.json 确定性生成）",
+  "generated_by": "durian_agent.glossary.build_glossary_v2",
+  "counts": {
+   "concepts": 206,
+   "aliases": 527
+  },
+  "note": "别名按文字分组：th/zh 按字符集，拉丁文按源类目 （malay_common→ms，其余→en）。related_entities 待扩充。"
+ },
+ "entries": [
+  {
+   "canonical_id": "CULTIVAR_001",
+   "type": "cultivar",
+   "canonical_name": "D168",
+   "aliases": {
+    "zh": [],
+    "en": [
+     "D168"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_malaysia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_002",
+   "type": "cultivar",
+   "canonical_name": "IOI",
+   "aliases": {
+    "zh": [],
+    "en": [
+     "IOI"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_malaysia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_003",
+   "type": "cultivar",
+   "canonical_name": "MDUR",
+   "aliases": {
+    "zh": [],
+    "en": [
+     "MDUR"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_malaysia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_004",
+   "type": "cultivar",
+   "canonical_name": "佩特鲁克",
+   "aliases": {
+    "zh": [
+     "佩特鲁克"
+    ],
+    "en": [
+     "Petruk"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_indonesia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_005",
+   "type": "cultivar",
+   "canonical_name": "小金凤",
+   "aliases": {
+    "zh": [
+     "小金凤"
+    ],
+    "en": [
+     "D198",
+     "Golden Phoenix"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_malaysia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_006",
+   "type": "cultivar",
+   "canonical_name": "干尧",
+   "aliases": {
+    "zh": [
+     "干尧"
+    ],
+    "en": [
+     "Kradum"
+    ],
+    "th": [
+     "กระดุม"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_thai"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_007",
+   "type": "cultivar",
+   "canonical_name": "本塔拉",
+   "aliases": {
+    "zh": [
+     "本塔拉"
+    ],
+    "en": [
+     "Bentara"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_indonesia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_008",
+   "type": "cultivar",
+   "canonical_name": "橙肉",
+   "aliases": {
+    "zh": [
+     "橙肉"
+    ],
+    "en": [
+     "D88"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_malaysia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_009",
+   "type": "cultivar",
+   "canonical_name": "猫山王",
+   "aliases": {
+    "zh": [
+     "猫山王"
+    ],
+    "en": [
+     "D197",
+     "Musang King",
+     "Musangking",
+     "Raja Kunyit"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_malaysia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_010",
+   "type": "cultivar",
+   "canonical_name": "甲仑",
+   "aliases": {
+    "zh": [
+     "甲仑"
+    ],
+    "en": [
+     "Kampung"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_malaysia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_011",
+   "type": "cultivar",
+   "canonical_name": "竹脚",
+   "aliases": {
+    "zh": [
+     "竹脚"
+    ],
+    "en": [
+     "Tekka"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_malaysia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_012",
+   "type": "cultivar",
+   "canonical_name": "粉红",
+   "aliases": {
+    "zh": [
+     "粉红"
+    ],
+    "en": [
+     "Chompoo",
+     "Chompoo Si"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_thai"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_013",
+   "type": "cultivar",
+   "canonical_name": "红肉",
+   "aliases": {
+    "zh": [
+     "红肉"
+    ],
+    "en": [
+     "D101",
+     "Red Flesh"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_malaysia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_014",
+   "type": "cultivar",
+   "canonical_name": "红虾",
+   "aliases": {
+    "zh": [
+     "红虾"
+    ],
+    "en": [
+     "D175",
+     "Red Prawn",
+     "Udang Merah"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_malaysia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_015",
+   "type": "cultivar",
+   "canonical_name": "绿竹",
+   "aliases": {
+    "zh": [
+     "绿竹"
+    ],
+    "en": [
+     "Green Bamboo"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_malaysia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_016",
+   "type": "cultivar",
+   "canonical_name": "苏丹王",
+   "aliases": {
+    "zh": [
+     "苏丹王"
+    ],
+    "en": [
+     "D24",
+     "Sultan"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_malaysia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_017",
+   "type": "cultivar",
+   "canonical_name": "苏南",
+   "aliases": {
+    "zh": [
+     "苏南"
+    ],
+    "en": [
+     "Sunan"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_indonesia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_018",
+   "type": "cultivar",
+   "canonical_name": "葫芦",
+   "aliases": {
+    "zh": [
+     "葫芦"
+    ],
+    "en": [
+     "D163",
+     "Hor Lor",
+     "Horlor"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_malaysia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_019",
+   "type": "cultivar",
+   "canonical_name": "蒲曼尼",
+   "aliases": {
+    "zh": [
+     "蒲曼尼"
+    ],
+    "en": [
+     "Puang Manee"
+    ],
+    "th": [
+     "พวงมณี"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_thai"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_020",
+   "type": "cultivar",
+   "canonical_name": "金枕",
+   "aliases": {
+    "zh": [
+     "金枕"
+    ],
+    "en": [
+     "Golden Pillow",
+     "Mon Thong",
+     "Monthong"
+    ],
+    "th": [
+     "หมอนทอง"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_thai"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_021",
+   "type": "cultivar",
+   "canonical_name": "长柄",
+   "aliases": {
+    "zh": [
+     "长柄"
+    ],
+    "en": [
+     "Gan Yao",
+     "Kan Yao",
+     "Kanyao"
+    ],
+    "th": [
+     "ก้านยาว"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_thai"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_022",
+   "type": "cultivar",
+   "canonical_name": "青尼",
+   "aliases": {
+    "zh": [
+     "青尼"
+    ],
+    "en": [
+     "Chanee"
+    ],
+    "th": [
+     "ชะนี"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_thai"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_023",
+   "type": "cultivar",
+   "canonical_name": "马塔哈里",
+   "aliases": {
+    "zh": [
+     "马塔哈里"
+    ],
+    "en": [
+     "Matahari"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_indonesia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_024",
+   "type": "cultivar",
+   "canonical_name": "黑刺",
+   "aliases": {
+    "zh": [
+     "黑刺"
+    ],
+    "en": [
+     "Black Thorn",
+     "D200",
+     "Duri Hitam"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_malaysia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVAR_025",
+   "type": "cultivar",
+   "canonical_name": "黑珍珠",
+   "aliases": {
+    "zh": [
+     "黑珍珠"
+    ],
+    "en": [
+     "Black Pearl"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "variety_malaysia"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_001",
+   "type": "cultivation",
+   "canonical_name": "侧接",
+   "aliases": {
+    "zh": [
+     "侧接"
+    ],
+    "en": [
+     "side grafting"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_002",
+   "type": "cultivation",
+   "canonical_name": "修剪",
+   "aliases": {
+    "zh": [
+     "修剪"
+    ],
+    "en": [
+     "pruning"
+    ],
+    "th": [
+     "ตัดแต่งกิ่ง",
+     "ตัดแตํงกิ่ง"
+    ],
+    "ms": [
+     "cantasan"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation",
+    "malay_common"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_003",
+   "type": "cultivation",
+   "canonical_name": "劈接",
+   "aliases": {
+    "zh": [
+     "劈接"
+    ],
+    "en": [
+     "cleft grafting"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_004",
+   "type": "cultivation",
+   "canonical_name": "叶面喷施",
+   "aliases": {
+    "zh": [
+     "叶面喷施"
+    ],
+    "en": [
+     "foliar spray"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_005",
+   "type": "cultivation",
+   "canonical_name": "喷施",
+   "aliases": {
+    "zh": [
+     "喷施"
+    ],
+    "en": [],
+    "th": [
+     "ฉีดพ่น"
+    ],
+    "ms": [
+     "semburan"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation",
+    "malay_common"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_006",
+   "type": "cultivation",
+   "canonical_name": "土壤",
+   "aliases": {
+    "zh": [
+     "土壤"
+    ],
+    "en": [],
+    "th": [
+     "ดิน"
+    ],
+    "ms": [
+     "tanah"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation",
+    "malay_common"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_007",
+   "type": "cultivation",
+   "canonical_name": "土壤 pH",
+   "aliases": {
+    "zh": [
+     "土壤 pH"
+    ],
+    "en": [
+     "soil pH"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_008",
+   "type": "cultivation",
+   "canonical_name": "基肥",
+   "aliases": {
+    "zh": [
+     "基肥"
+    ],
+    "en": [
+     "basal fertilizer"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_009",
+   "type": "cultivation",
+   "canonical_name": "套袋",
+   "aliases": {
+    "zh": [
+     "套袋"
+    ],
+    "en": [],
+    "th": [
+     "ห่อผล"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_010",
+   "type": "cultivation",
+   "canonical_name": "嫁接",
+   "aliases": {
+    "zh": [
+     "嫁接"
+    ],
+    "en": [
+     "grafting"
+    ],
+    "th": [
+     "ทาบกิ่ง",
+     "เสียบยอด"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_011",
+   "type": "cultivation",
+   "canonical_name": "幼苗",
+   "aliases": {
+    "zh": [
+     "幼苗"
+    ],
+    "en": [
+     "seedling"
+    ],
+    "th": [
+     "ต้นกล้า"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_012",
+   "type": "cultivation",
+   "canonical_name": "扦插",
+   "aliases": {
+    "zh": [
+     "扦插"
+    ],
+    "en": [
+     "cutting"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_013",
+   "type": "cultivation",
+   "canonical_name": "排水",
+   "aliases": {
+    "zh": [
+     "排水"
+    ],
+    "en": [
+     "drainage"
+    ],
+    "th": [
+     "ระบายน้ำ"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_014",
+   "type": "cultivation",
+   "canonical_name": "接穗",
+   "aliases": {
+    "zh": [
+     "接穗"
+    ],
+    "en": [
+     "scion"
+    ],
+    "th": [
+     "กิ่งพันธุ์"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_015",
+   "type": "cultivation",
+   "canonical_name": "整形",
+   "aliases": {
+    "zh": [
+     "整形"
+    ],
+    "en": [
+     "training"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_016",
+   "type": "cultivation",
+   "canonical_name": "有机肥",
+   "aliases": {
+    "zh": [
+     "有机肥"
+    ],
+    "en": [],
+    "th": [
+     "ปุ๋ยอินทรีย์"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_017",
+   "type": "cultivation",
+   "canonical_name": "有机质",
+   "aliases": {
+    "zh": [
+     "有机质"
+    ],
+    "en": [
+     "organic matter"
+    ],
+    "th": [
+     "อินทรียวัตถุ"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_018",
+   "type": "cultivation",
+   "canonical_name": "果园",
+   "aliases": {
+    "zh": [
+     "果园"
+    ],
+    "en": [
+     "orchard"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_019",
+   "type": "cultivation",
+   "canonical_name": "树冠",
+   "aliases": {
+    "zh": [
+     "树冠"
+    ],
+    "en": [
+     "canopy"
+    ],
+    "th": [
+     "ทรงพุ่ม",
+     "ทรงพุํม"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_020",
+   "type": "cultivation",
+   "canonical_name": "株行距",
+   "aliases": {
+    "zh": [
+     "株行距"
+    ],
+    "en": [
+     "planting distance",
+     "spacing"
+    ],
+    "th": [],
+    "ms": [
+     "jarak tanaman"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation",
+    "malay_common"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_021",
+   "type": "cultivation",
+   "canonical_name": "水肥一体化",
+   "aliases": {
+    "zh": [
+     "水肥一体化"
+    ],
+    "en": [
+     "fertigation"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_022",
+   "type": "cultivation",
+   "canonical_name": "滴灌",
+   "aliases": {
+    "zh": [
+     "滴灌"
+    ],
+    "en": [
+     "drip irrigation"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_023",
+   "type": "cultivation",
+   "canonical_name": "灌溉",
+   "aliases": {
+    "zh": [
+     "灌溉"
+    ],
+    "en": [
+     "irrigation"
+    ],
+    "th": [
+     "ให้น้ำ"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_024",
+   "type": "cultivation",
+   "canonical_name": "疏果",
+   "aliases": {
+    "zh": [
+     "疏果"
+    ],
+    "en": [
+     "fruit thinning",
+     "thinning"
+    ],
+    "th": [
+     "ตัดแต่งผล",
+     "ตัดแตํงผล"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_025",
+   "type": "cultivation",
+   "canonical_name": "石灰",
+   "aliases": {
+    "zh": [
+     "石灰"
+    ],
+    "en": [],
+    "th": [
+     "ปูนขาว"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_026",
+   "type": "cultivation",
+   "canonical_name": "砧木",
+   "aliases": {
+    "zh": [
+     "砧木"
+    ],
+    "en": [
+     "rootstock"
+    ],
+    "th": [
+     "ต้นตอ"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_027",
+   "type": "cultivation",
+   "canonical_name": "种植园",
+   "aliases": {
+    "zh": [
+     "种植园"
+    ],
+    "en": [
+     "plantation"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_028",
+   "type": "cultivation",
+   "canonical_name": "种植穴",
+   "aliases": {
+    "zh": [
+     "种植穴"
+    ],
+    "en": [
+     "planting hole"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_029",
+   "type": "cultivation",
+   "canonical_name": "空中压条",
+   "aliases": {
+    "zh": [
+     "空中压条"
+    ],
+    "en": [
+     "air layering",
+     "marcotting"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_030",
+   "type": "cultivation",
+   "canonical_name": "繁殖",
+   "aliases": {
+    "zh": [
+     "繁殖"
+    ],
+    "en": [
+     "propagation"
+    ],
+    "th": [
+     "ขยายพันธุ์"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_031",
+   "type": "cultivation",
+   "canonical_name": "肥料",
+   "aliases": {
+    "zh": [
+     "肥料"
+    ],
+    "en": [],
+    "th": [
+     "ปุ๋ย"
+    ],
+    "ms": [
+     "baja"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation",
+    "malay_common"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_032",
+   "type": "cultivation",
+   "canonical_name": "芽接",
+   "aliases": {
+    "zh": [
+     "芽接"
+    ],
+    "en": [
+     "bud grafting"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_033",
+   "type": "cultivation",
+   "canonical_name": "苗圃",
+   "aliases": {
+    "zh": [
+     "苗圃"
+    ],
+    "en": [
+     "nursery"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_034",
+   "type": "cultivation",
+   "canonical_name": "药剂",
+   "aliases": {
+    "zh": [
+     "药剂"
+    ],
+    "en": [],
+    "th": [
+     "สารเคมี"
+    ],
+    "ms": [
+     "racun"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation",
+    "malay_common"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_035",
+   "type": "cultivation",
+   "canonical_name": "覆盖",
+   "aliases": {
+    "zh": [
+     "覆盖"
+    ],
+    "en": [
+     "mulching"
+    ],
+    "th": [
+     "คลุมดิน"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_036",
+   "type": "cultivation",
+   "canonical_name": "追肥",
+   "aliases": {
+    "zh": [
+     "追肥"
+    ],
+    "en": [
+     "topdressing"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_037",
+   "type": "cultivation",
+   "canonical_name": "间作",
+   "aliases": {
+    "zh": [
+     "间作"
+    ],
+    "en": [
+     "intercropping"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_038",
+   "type": "cultivation",
+   "canonical_name": "防风林",
+   "aliases": {
+    "zh": [
+     "防风林"
+    ],
+    "en": [
+     "windbreak"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "CULTIVATION_039",
+   "type": "cultivation",
+   "canonical_name": "高接换种",
+   "aliases": {
+    "zh": [
+     "高接换种"
+    ],
+    "en": [
+     "top working"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "cultivation"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_001",
+   "type": "disease",
+   "canonical_name": "丝核菌",
+   "aliases": {
+    "zh": [
+     "丝核菌"
+    ],
+    "en": [
+     "Rhizoctonia"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_002",
+   "type": "disease",
+   "canonical_name": "刺盘孢",
+   "aliases": {
+    "zh": [
+     "刺盘孢"
+    ],
+    "en": [
+     "Colletotrichum"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_003",
+   "type": "disease",
+   "canonical_name": "叶斑病",
+   "aliases": {
+    "zh": [
+     "叶斑病"
+    ],
+    "en": [
+     "leaf spot"
+    ],
+    "th": [
+     "ใบจุด"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_004",
+   "type": "disease",
+   "canonical_name": "叶枯病",
+   "aliases": {
+    "zh": [
+     "叶枯病"
+    ],
+    "en": [
+     "leaf blight"
+    ],
+    "th": [
+     "ใบไหม้"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_005",
+   "type": "disease",
+   "canonical_name": "幼苗猝倒病",
+   "aliases": {
+    "zh": [
+     "幼苗猝倒病"
+    ],
+    "en": [
+     "seedling dieback"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_006",
+   "type": "disease",
+   "canonical_name": "果腐病",
+   "aliases": {
+    "zh": [
+     "果腐病"
+    ],
+    "en": [
+     "fruit rot"
+    ],
+    "th": [
+     "ผลเน่า"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_007",
+   "type": "disease",
+   "canonical_name": "枝枯病",
+   "aliases": {
+    "zh": [
+     "枝枯病"
+    ],
+    "en": [
+     "dieback"
+    ],
+    "th": [
+     "กิ่งแห้ง"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_008",
+   "type": "disease",
+   "canonical_name": "根腐病",
+   "aliases": {
+    "zh": [
+     "根腐病"
+    ],
+    "en": [
+     "root rot"
+    ],
+    "th": [
+     "รากเน่า"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_009",
+   "type": "disease",
+   "canonical_name": "棕榈疫霉 (Phytophthora palmivora)",
+   "aliases": {
+    "zh": [
+     "棕榈疫霉 (Phytophthora palmivora)"
+    ],
+    "en": [
+     "Phytophthora palmivora"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_010",
+   "type": "disease",
+   "canonical_name": "流胶病",
+   "aliases": {
+    "zh": [
+     "流胶病"
+    ],
+    "en": [
+     "gummosis"
+    ],
+    "th": [
+     "ยางไหล"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_011",
+   "type": "disease",
+   "canonical_name": "炭疽病",
+   "aliases": {
+    "zh": [
+     "炭疽病"
+    ],
+    "en": [
+     "anthracnose"
+    ],
+    "th": [
+     "แอนแทรกโนส",
+     "แอนแทรคโนส"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_012",
+   "type": "disease",
+   "canonical_name": "疫病斑 (树干溃疡)",
+   "aliases": {
+    "zh": [
+     "疫病斑 (树干溃疡)"
+    ],
+    "en": [
+     "patch canker"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_013",
+   "type": "disease",
+   "canonical_name": "疫霉",
+   "aliases": {
+    "zh": [
+     "疫霉"
+    ],
+    "en": [
+     "Phytophthora"
+    ],
+    "th": [
+     "ไฟทอปธอรา",
+     "ไฟทอปธอร่า",
+     "ไฟทอปธอรํา",
+     "ไฟทอฟธอรา"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_014",
+   "type": "disease",
+   "canonical_name": "病害",
+   "aliases": {
+    "zh": [
+     "病害"
+    ],
+    "en": [],
+    "th": [
+     "โรค"
+    ],
+    "ms": [
+     "penyakit"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease",
+    "malay_common"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_015",
+   "type": "disease",
+   "canonical_name": "真菌",
+   "aliases": {
+    "zh": [
+     "真菌"
+    ],
+    "en": [],
+    "th": [
+     "เชื้อรา",
+     "เช้ือรา"
+    ],
+    "ms": [
+     "kulat"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease",
+    "malay_common"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_016",
+   "type": "disease",
+   "canonical_name": "粉红病",
+   "aliases": {
+    "zh": [
+     "粉红病"
+    ],
+    "en": [
+     "pink disease"
+    ],
+    "th": [
+     "ราสีชมพู"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_017",
+   "type": "disease",
+   "canonical_name": "胶孢刺盘孢 (Colletotrichum gloeosporioides)",
+   "aliases": {
+    "zh": [
+     "胶孢刺盘孢 (Colletotrichum gloeosporioides)"
+    ],
+    "en": [
+     "Colletotrichum gloeosporioides"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_018",
+   "type": "disease",
+   "canonical_name": "腐霉",
+   "aliases": {
+    "zh": [
+     "腐霉"
+    ],
+    "en": [
+     "Pythium"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_019",
+   "type": "disease",
+   "canonical_name": "茎溃疡病",
+   "aliases": {
+    "zh": [
+     "茎溃疡病"
+    ],
+    "en": [
+     "stem canker"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_020",
+   "type": "disease",
+   "canonical_name": "茎腐病",
+   "aliases": {
+    "zh": [
+     "茎腐病"
+    ],
+    "en": [
+     "stem rot"
+    ],
+    "th": [
+     "โคนเน่า"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_021",
+   "type": "disease",
+   "canonical_name": "藻斑病",
+   "aliases": {
+    "zh": [
+     "藻斑病"
+    ],
+    "en": [
+     "algal spot"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "DISEASE_022",
+   "type": "disease",
+   "canonical_name": "镰刀菌",
+   "aliases": {
+    "zh": [
+     "镰刀菌"
+    ],
+    "en": [
+     "Fusarium"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "disease"
+   ]
+  },
+  {
+   "canonical_id": "FRUIT_001",
+   "type": "fruit_identity",
+   "canonical_name": "榴莲",
+   "aliases": {
+    "zh": [
+     "榴莲"
+    ],
+    "en": [
+     "Durian",
+     "durian"
+    ],
+    "th": [
+     "ทุเรียน"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "fruit_identity"
+   ]
+  },
+  {
+   "canonical_id": "FRUIT_002",
+   "type": "fruit_identity",
+   "canonical_name": "榴莲 (Durio zibethinus)",
+   "aliases": {
+    "zh": [
+     "榴莲 (Durio zibethinus)"
+    ],
+    "en": [
+     "Durio zibethinus"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "fruit_identity"
+   ]
+  },
+  {
+   "canonical_id": "FRUIT_003",
+   "type": "fruit_identity",
+   "canonical_name": "榴莲园",
+   "aliases": {
+    "zh": [
+     "榴莲园"
+    ],
+    "en": [
+     "durian orchard"
+    ],
+    "th": [
+     "สวนทุเรียน"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "fruit_identity"
+   ]
+  },
+  {
+   "canonical_id": "FRUIT_004",
+   "type": "fruit_identity",
+   "canonical_name": "榴莲属 (Durio)",
+   "aliases": {
+    "zh": [
+     "榴莲属 (Durio)"
+    ],
+    "en": [
+     "Durio"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "fruit_identity"
+   ]
+  },
+  {
+   "canonical_id": "FRUIT_005",
+   "type": "fruit_identity",
+   "canonical_name": "榴莲树",
+   "aliases": {
+    "zh": [
+     "榴莲树"
+    ],
+    "en": [
+     "durian tree"
+    ],
+    "th": [
+     "ต้นทุเรียน",
+     "ต๎นทุเรียน"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "fruit_identity"
+   ]
+  },
+  {
+   "canonical_id": "MALAY_COMMON_001",
+   "type": "malay_common",
+   "canonical_name": "叶片",
+   "aliases": {
+    "zh": [
+     "叶片"
+    ],
+    "en": [],
+    "th": [
+     "ใบ"
+    ],
+    "ms": [
+     "daun"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "malay_common",
+    "plant_organ"
+   ]
+  },
+  {
+   "canonical_id": "MALAY_COMMON_002",
+   "type": "malay_common",
+   "canonical_name": "含量/目录",
+   "aliases": {
+    "zh": [
+     "含量/目录"
+    ],
+    "en": [],
+    "th": [],
+    "ms": [
+     "kandungan"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "malay_common"
+   ]
+  },
+  {
+   "canonical_id": "MALAY_COMMON_003",
+   "type": "malay_common",
+   "canonical_name": "处理",
+   "aliases": {
+    "zh": [
+     "处理"
+    ],
+    "en": [],
+    "th": [],
+    "ms": [
+     "rawatan"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "malay_common"
+   ]
+  },
+  {
+   "canonical_id": "MALAY_COMMON_004",
+   "type": "malay_common",
+   "canonical_name": "推荐",
+   "aliases": {
+    "zh": [
+     "推荐"
+    ],
+    "en": [],
+    "th": [],
+    "ms": [
+     "disyorkan"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "malay_common"
+   ]
+  },
+  {
+   "canonical_id": "MALAY_COMMON_005",
+   "type": "malay_common",
+   "canonical_name": "果实",
+   "aliases": {
+    "zh": [
+     "果实"
+    ],
+    "en": [],
+    "th": [],
+    "ms": [
+     "buah"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "malay_common"
+   ]
+  },
+  {
+   "canonical_id": "MALAY_COMMON_006",
+   "type": "malay_common",
+   "canonical_name": "枝条",
+   "aliases": {
+    "zh": [
+     "枝条"
+    ],
+    "en": [],
+    "th": [
+     "กิ่ง"
+    ],
+    "ms": [
+     "ranting"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "malay_common",
+    "plant_organ"
+   ]
+  },
+  {
+   "canonical_id": "MALAY_COMMON_007",
+   "type": "malay_common",
+   "canonical_name": "根",
+   "aliases": {
+    "zh": [
+     "根"
+    ],
+    "en": [],
+    "th": [
+     "ราก"
+    ],
+    "ms": [
+     "akar"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "malay_common",
+    "plant_organ"
+   ]
+  },
+  {
+   "canonical_id": "MALAY_COMMON_008",
+   "type": "malay_common",
+   "canonical_name": "植株",
+   "aliases": {
+    "zh": [
+     "植株"
+    ],
+    "en": [],
+    "th": [],
+    "ms": [
+     "pokok"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "malay_common"
+   ]
+  },
+  {
+   "canonical_id": "MALAY_COMMON_009",
+   "type": "malay_common",
+   "canonical_name": "每年",
+   "aliases": {
+    "zh": [
+     "每年"
+    ],
+    "en": [],
+    "th": [],
+    "ms": [
+     "setahun"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "malay_common"
+   ]
+  },
+  {
+   "canonical_id": "MALAY_COMMON_010",
+   "type": "malay_common",
+   "canonical_name": "每株",
+   "aliases": {
+    "zh": [
+     "每株"
+    ],
+    "en": [],
+    "th": [],
+    "ms": [
+     "sepokok"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "malay_common"
+   ]
+  },
+  {
+   "canonical_id": "MALAY_COMMON_011",
+   "type": "malay_common",
+   "canonical_name": "种子",
+   "aliases": {
+    "zh": [
+     "种子"
+    ],
+    "en": [],
+    "th": [
+     "เมล็ด"
+    ],
+    "ms": [
+     "biji"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "malay_common",
+    "plant_organ"
+   ]
+  },
+  {
+   "canonical_id": "MALAY_COMMON_012",
+   "type": "malay_common",
+   "canonical_name": "茎/树干",
+   "aliases": {
+    "zh": [
+     "茎/树干"
+    ],
+    "en": [],
+    "th": [
+     "ลำต้น",
+     "ล้าต้น"
+    ],
+    "ms": [
+     "batang"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "malay_common",
+    "plant_organ"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_001",
+   "type": "nutrient",
+   "canonical_name": "NPK",
+   "aliases": {
+    "zh": [],
+    "en": [
+     "NPK"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_002",
+   "type": "nutrient",
+   "canonical_name": "叶片分析",
+   "aliases": {
+    "zh": [
+     "叶片分析"
+    ],
+    "en": [
+     "leaf analysis"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_003",
+   "type": "nutrient",
+   "canonical_name": "大量元素",
+   "aliases": {
+    "zh": [
+     "大量元素"
+    ],
+    "en": [
+     "macronutrient"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_004",
+   "type": "nutrient",
+   "canonical_name": "微量元素",
+   "aliases": {
+    "zh": [
+     "微量元素"
+    ],
+    "en": [
+     "micronutrient"
+    ],
+    "th": [
+     "ธาตุอาหารรอง"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_005",
+   "type": "nutrient",
+   "canonical_name": "氮",
+   "aliases": {
+    "zh": [
+     "氮"
+    ],
+    "en": [
+     "nitrogen"
+    ],
+    "th": [
+     "ไนโตรเจน"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_006",
+   "type": "nutrient",
+   "canonical_name": "硫",
+   "aliases": {
+    "zh": [
+     "硫"
+    ],
+    "en": [
+     "sulfur"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_007",
+   "type": "nutrient",
+   "canonical_name": "硼",
+   "aliases": {
+    "zh": [
+     "硼"
+    ],
+    "en": [
+     "boron"
+    ],
+    "th": [
+     "โบรอน"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_008",
+   "type": "nutrient",
+   "canonical_name": "磷",
+   "aliases": {
+    "zh": [
+     "磷"
+    ],
+    "en": [
+     "phosphorus"
+    ],
+    "th": [
+     "ฟอสฟอรัส"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_009",
+   "type": "nutrient",
+   "canonical_name": "缺素症",
+   "aliases": {
+    "zh": [
+     "缺素症"
+    ],
+    "en": [
+     "deficiency"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_010",
+   "type": "nutrient",
+   "canonical_name": "营养诊断",
+   "aliases": {
+    "zh": [
+     "营养诊断"
+    ],
+    "en": [
+     "nutrient diagnosis"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_011",
+   "type": "nutrient",
+   "canonical_name": "钙",
+   "aliases": {
+    "zh": [
+     "钙"
+    ],
+    "en": [
+     "calcium"
+    ],
+    "th": [
+     "แคลเซียม"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_012",
+   "type": "nutrient",
+   "canonical_name": "钼",
+   "aliases": {
+    "zh": [
+     "钼"
+    ],
+    "en": [
+     "molybdenum"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_013",
+   "type": "nutrient",
+   "canonical_name": "钾",
+   "aliases": {
+    "zh": [
+     "钾"
+    ],
+    "en": [
+     "potassium"
+    ],
+    "th": [
+     "โพแทสเซียม"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_014",
+   "type": "nutrient",
+   "canonical_name": "铁",
+   "aliases": {
+    "zh": [
+     "铁"
+    ],
+    "en": [
+     "iron"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_015",
+   "type": "nutrient",
+   "canonical_name": "铜",
+   "aliases": {
+    "zh": [
+     "铜"
+    ],
+    "en": [
+     "copper"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_016",
+   "type": "nutrient",
+   "canonical_name": "锌",
+   "aliases": {
+    "zh": [
+     "锌"
+    ],
+    "en": [
+     "zinc"
+    ],
+    "th": [
+     "สังกะสี"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_017",
+   "type": "nutrient",
+   "canonical_name": "锰",
+   "aliases": {
+    "zh": [
+     "锰"
+    ],
+    "en": [
+     "manganese"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_018",
+   "type": "nutrient",
+   "canonical_name": "镁",
+   "aliases": {
+    "zh": [
+     "镁"
+    ],
+    "en": [
+     "magnesium"
+    ],
+    "th": [
+     "แมกนีเซียม"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_019",
+   "type": "nutrient",
+   "canonical_name": "阳离子交换量",
+   "aliases": {
+    "zh": [
+     "阳离子交换量"
+    ],
+    "en": [
+     "cation exchange capacity"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "NUTRIENT_020",
+   "type": "nutrient",
+   "canonical_name": "阳离子交换量 (CEC)",
+   "aliases": {
+    "zh": [
+     "阳离子交换量 (CEC)"
+    ],
+    "en": [
+     "CEC"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "nutrient"
+   ]
+  },
+  {
+   "canonical_id": "PEST_001",
+   "type": "pest",
+   "canonical_name": "介壳虫",
+   "aliases": {
+    "zh": [
+     "介壳虫"
+    ],
+    "en": [
+     "scale insect"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PEST_002",
+   "type": "pest",
+   "canonical_name": "叶蝉",
+   "aliases": {
+    "zh": [
+     "叶蝉"
+    ],
+    "en": [
+     "leafhopper"
+    ],
+    "th": [
+     "เพลี้ยจักจั่น"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PEST_003",
+   "type": "pest",
+   "canonical_name": "害虫",
+   "aliases": {
+    "zh": [
+     "害虫"
+    ],
+    "en": [],
+    "th": [
+     "ศัตรูพืช",
+     "แมลง",
+     "แมลงศัตรูพืช"
+    ],
+    "ms": [
+     "perosak"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "malay_common",
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PEST_004",
+   "type": "pest",
+   "canonical_name": "小蠹虫",
+   "aliases": {
+    "zh": [
+     "小蠹虫"
+    ],
+    "en": [
+     "ambrosia beetle",
+     "bark beetle"
+    ],
+    "th": [
+     "มอด"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PEST_005",
+   "type": "pest",
+   "canonical_name": "幼虫",
+   "aliases": {
+    "zh": [
+     "幼虫"
+    ],
+    "en": [],
+    "th": [
+     "หนอน"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PEST_006",
+   "type": "pest",
+   "canonical_name": "木虱",
+   "aliases": {
+    "zh": [
+     "木虱"
+    ],
+    "en": [
+     "psyllid"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PEST_007",
+   "type": "pest",
+   "canonical_name": "果实蝇",
+   "aliases": {
+    "zh": [
+     "果实蝇"
+    ],
+    "en": [
+     "fruit fly"
+    ],
+    "th": [
+     "แมลงวันทอง",
+     "แมลงวันผลไม้"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PEST_008",
+   "type": "pest",
+   "canonical_name": "果蛀虫",
+   "aliases": {
+    "zh": [
+     "果蛀虫"
+    ],
+    "en": [
+     "fruit borer"
+    ],
+    "th": [
+     "หนอนเจาะผล"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PEST_009",
+   "type": "pest",
+   "canonical_name": "枝蛀虫",
+   "aliases": {
+    "zh": [
+     "枝蛀虫"
+    ],
+    "en": [
+     "twig borer"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PEST_010",
+   "type": "pest",
+   "canonical_name": "梢蛀虫",
+   "aliases": {
+    "zh": [
+     "梢蛀虫"
+    ],
+    "en": [
+     "shoot borer"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PEST_011",
+   "type": "pest",
+   "canonical_name": "甲虫",
+   "aliases": {
+    "zh": [
+     "甲虫"
+    ],
+    "en": [
+     "beetle"
+    ],
+    "th": [
+     "ด้วงงวง"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PEST_012",
+   "type": "pest",
+   "canonical_name": "粉蚧",
+   "aliases": {
+    "zh": [
+     "粉蚧"
+    ],
+    "en": [
+     "mealybug"
+    ],
+    "th": [
+     "เพลี้ยแป้ง"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PEST_013",
+   "type": "pest",
+   "canonical_name": "红蜘蛛",
+   "aliases": {
+    "zh": [
+     "红蜘蛛"
+    ],
+    "en": [
+     "red spider mite"
+    ],
+    "th": [
+     "ไรแดง"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PEST_014",
+   "type": "pest",
+   "canonical_name": "茎蛀虫",
+   "aliases": {
+    "zh": [
+     "茎蛀虫"
+    ],
+    "en": [
+     "stem borer"
+    ],
+    "th": [
+     "หนอนเจาะลำต้น"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PEST_015",
+   "type": "pest",
+   "canonical_name": "蓟马",
+   "aliases": {
+    "zh": [
+     "蓟马"
+    ],
+    "en": [
+     "thrips"
+    ],
+    "th": [
+     "เพลี้ยไฟ"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PEST_016",
+   "type": "pest",
+   "canonical_name": "蛀干虫",
+   "aliases": {
+    "zh": [
+     "蛀干虫"
+    ],
+    "en": [
+     "bark borer"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PEST_017",
+   "type": "pest",
+   "canonical_name": "螨",
+   "aliases": {
+    "zh": [
+     "螨"
+    ],
+    "en": [
+     "mite"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PEST_018",
+   "type": "pest",
+   "canonical_name": "袋蛾",
+   "aliases": {
+    "zh": [
+     "袋蛾"
+    ],
+    "en": [
+     "bagworm"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PEST_019",
+   "type": "pest",
+   "canonical_name": "食叶毛虫",
+   "aliases": {
+    "zh": [
+     "食叶毛虫"
+    ],
+    "en": [
+     "leaf-eating caterpillar"
+    ],
+    "th": [
+     "หนอนกินใบ"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "pest"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_001",
+   "type": "phenology",
+   "canonical_name": "人工授粉",
+   "aliases": {
+    "zh": [
+     "人工授粉"
+    ],
+    "en": [
+     "hand pollination"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_002",
+   "type": "phenology",
+   "canonical_name": "坐果",
+   "aliases": {
+    "zh": [
+     "坐果"
+    ],
+    "en": [
+     "fruit set",
+     "fruit setting"
+    ],
+    "th": [
+     "ติดผล"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_003",
+   "type": "phenology",
+   "canonical_name": "开花",
+   "aliases": {
+    "zh": [
+     "开花"
+    ],
+    "en": [
+     "flowering"
+    ],
+    "th": [
+     "ออกดอก"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_004",
+   "type": "phenology",
+   "canonical_name": "开花后天数",
+   "aliases": {
+    "zh": [
+     "开花后天数"
+    ],
+    "en": [
+     "days after anthesis"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_005",
+   "type": "phenology",
+   "canonical_name": "开花后天数 (DAA)",
+   "aliases": {
+    "zh": [
+     "开花后天数 (DAA)"
+    ],
+    "en": [
+     "DAA"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_006",
+   "type": "phenology",
+   "canonical_name": "开花期",
+   "aliases": {
+    "zh": [
+     "开花期"
+    ],
+    "en": [
+     "anthesis"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_007",
+   "type": "phenology",
+   "canonical_name": "异花授粉",
+   "aliases": {
+    "zh": [
+     "异花授粉"
+    ],
+    "en": [
+     "cross-pollination"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_008",
+   "type": "phenology",
+   "canonical_name": "抽梢",
+   "aliases": {
+    "zh": [
+     "抽梢"
+    ],
+    "en": [
+     "flushing"
+    ],
+    "th": [
+     "แตกใบอ่อน"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_009",
+   "type": "phenology",
+   "canonical_name": "授粉",
+   "aliases": {
+    "zh": [
+     "授粉"
+    ],
+    "en": [
+     "pollination"
+    ],
+    "th": [
+     "ผสมเกสร",
+     "เกสร"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_010",
+   "type": "phenology",
+   "canonical_name": "有效授粉期",
+   "aliases": {
+    "zh": [
+     "有效授粉期"
+    ],
+    "en": [
+     "effective pollination period"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_011",
+   "type": "phenology",
+   "canonical_name": "有效授粉期 (EPP)",
+   "aliases": {
+    "zh": [
+     "有效授粉期 (EPP)"
+    ],
+    "en": [
+     "EPP"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_012",
+   "type": "phenology",
+   "canonical_name": "果实发育",
+   "aliases": {
+    "zh": [
+     "果实发育"
+    ],
+    "en": [
+     "fruit development"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_013",
+   "type": "phenology",
+   "canonical_name": "柱头可授性",
+   "aliases": {
+    "zh": [
+     "柱头可授性"
+    ],
+    "en": [
+     "stigma receptivity"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_014",
+   "type": "phenology",
+   "canonical_name": "生理落果",
+   "aliases": {
+    "zh": [
+     "生理落果"
+    ],
+    "en": [
+     "physiological fruit drop"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_015",
+   "type": "phenology",
+   "canonical_name": "盛花后天数",
+   "aliases": {
+    "zh": [
+     "盛花后天数"
+    ],
+    "en": [
+     "days after full bloom"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_016",
+   "type": "phenology",
+   "canonical_name": "盛花后天数 (DAFB)",
+   "aliases": {
+    "zh": [
+     "盛花后天数 (DAFB)"
+    ],
+    "en": [
+     "DAFB"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_017",
+   "type": "phenology",
+   "canonical_name": "自花授粉",
+   "aliases": {
+    "zh": [
+     "自花授粉"
+    ],
+    "en": [
+     "self-pollination"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_018",
+   "type": "phenology",
+   "canonical_name": "花",
+   "aliases": {
+    "zh": [
+     "花"
+    ],
+    "en": [],
+    "th": [
+     "ดอก"
+    ],
+    "ms": [
+     "bunga"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "malay_common",
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_019",
+   "type": "phenology",
+   "canonical_name": "花粉活力",
+   "aliases": {
+    "zh": [
+     "花粉活力"
+    ],
+    "en": [
+     "pollen viability"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_020",
+   "type": "phenology",
+   "canonical_name": "花芽",
+   "aliases": {
+    "zh": [
+     "花芽"
+    ],
+    "en": [
+     "flower bud"
+    ],
+    "th": [
+     "ตาดอก"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_021",
+   "type": "phenology",
+   "canonical_name": "花芽分化",
+   "aliases": {
+    "zh": [
+     "花芽分化"
+    ],
+    "en": [
+     "floral initiation"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_022",
+   "type": "phenology",
+   "canonical_name": "花芽诱导",
+   "aliases": {
+    "zh": [
+     "花芽诱导"
+    ],
+    "en": [
+     "flower induction"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_023",
+   "type": "phenology",
+   "canonical_name": "营养抽梢",
+   "aliases": {
+    "zh": [
+     "营养抽梢"
+    ],
+    "en": [
+     "vegetative flush"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_024",
+   "type": "phenology",
+   "canonical_name": "落果",
+   "aliases": {
+    "zh": [
+     "落果"
+    ],
+    "en": [
+     "fruit drop"
+    ],
+    "th": [
+     "ผลร่วง"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PHENOLOGY_025",
+   "type": "phenology",
+   "canonical_name": "雌雄蕊异熟",
+   "aliases": {
+    "zh": [
+     "雌雄蕊异熟"
+    ],
+    "en": [
+     "dichogamy"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "phenology"
+   ]
+  },
+  {
+   "canonical_id": "PLANT_ORGAN_001",
+   "type": "plant_organ",
+   "canonical_name": "新梢",
+   "aliases": {
+    "zh": [
+     "新梢"
+    ],
+    "en": [],
+    "th": [
+     "ยอด"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "plant_organ"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_001",
+   "type": "postharvest",
+   "canonical_name": "1-MCP",
+   "aliases": {
+    "zh": [],
+    "en": [
+     "1-MCP"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_002",
+   "type": "postharvest",
+   "canonical_name": "1-甲基环丙烯 (1-MCP)",
+   "aliases": {
+    "zh": [
+     "1-甲基环丙烯 (1-MCP)"
+    ],
+    "en": [
+     "1-methylcyclopropene"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_003",
+   "type": "postharvest",
+   "canonical_name": "乙烯",
+   "aliases": {
+    "zh": [
+     "乙烯"
+    ],
+    "en": [
+     "ethylene"
+    ],
+    "th": [
+     "เอทธิลีน",
+     "เอทิลีน"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_004",
+   "type": "postharvest",
+   "canonical_name": "冷藏",
+   "aliases": {
+    "zh": [
+     "冷藏"
+    ],
+    "en": [
+     "cold storage"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_005",
+   "type": "postharvest",
+   "canonical_name": "可溶性固形物",
+   "aliases": {
+    "zh": [
+     "可溶性固形物"
+    ],
+    "en": [
+     "total soluble solids"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_006",
+   "type": "postharvest",
+   "canonical_name": "可溶性固形物 (TSS)",
+   "aliases": {
+    "zh": [
+     "可溶性固形物 (TSS)"
+    ],
+    "en": [
+     "TSS"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_007",
+   "type": "postharvest",
+   "canonical_name": "可食率",
+   "aliases": {
+    "zh": [
+     "可食率"
+    ],
+    "en": [
+     "edible portion",
+     "flesh recovery"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_008",
+   "type": "postharvest",
+   "canonical_name": "后熟",
+   "aliases": {
+    "zh": [
+     "后熟"
+    ],
+    "en": [
+     "ripening"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_009",
+   "type": "postharvest",
+   "canonical_name": "呼吸速率",
+   "aliases": {
+    "zh": [
+     "呼吸速率"
+    ],
+    "en": [
+     "respiration rate"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_010",
+   "type": "postharvest",
+   "canonical_name": "干物质",
+   "aliases": {
+    "zh": [
+     "干物质"
+    ],
+    "en": [
+     "dry matter"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_011",
+   "type": "postharvest",
+   "canonical_name": "成熟度",
+   "aliases": {
+    "zh": [
+     "成熟度"
+    ],
+    "en": [
+     "maturity",
+     "ripeness"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_012",
+   "type": "postharvest",
+   "canonical_name": "成熟阶段",
+   "aliases": {
+    "zh": [
+     "成熟阶段"
+    ],
+    "en": [
+     "maturity stage"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_013",
+   "type": "postharvest",
+   "canonical_name": "果刺",
+   "aliases": {
+    "zh": [
+     "果刺"
+    ],
+    "en": [
+     "spine"
+    ],
+    "th": [
+     "หนาม"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_014",
+   "type": "postharvest",
+   "canonical_name": "果壳",
+   "aliases": {
+    "zh": [
+     "果壳"
+    ],
+    "en": [
+     "husk"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_015",
+   "type": "postharvest",
+   "canonical_name": "果室",
+   "aliases": {
+    "zh": [
+     "果室"
+    ],
+    "en": [
+     "locule"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_016",
+   "type": "postharvest",
+   "canonical_name": "果柄",
+   "aliases": {
+    "zh": [
+     "果柄"
+    ],
+    "en": [
+     "peduncle"
+    ],
+    "th": [
+     "ขั้วผล"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_017",
+   "type": "postharvest",
+   "canonical_name": "果皮",
+   "aliases": {
+    "zh": [
+     "果皮"
+    ],
+    "en": [
+     "rind"
+    ],
+    "th": [
+     "เปลือก"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_018",
+   "type": "postharvest",
+   "canonical_name": "果肉",
+   "aliases": {
+    "zh": [
+     "果肉"
+    ],
+    "en": [
+     "aril",
+     "pulp"
+    ],
+    "th": [
+     "เนื้อ"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_019",
+   "type": "postharvest",
+   "canonical_name": "气调包装",
+   "aliases": {
+    "zh": [
+     "气调包装"
+    ],
+    "en": [
+     "modified atmosphere packaging"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_020",
+   "type": "postharvest",
+   "canonical_name": "气调包装 (MAP)",
+   "aliases": {
+    "zh": [
+     "气调包装 (MAP)"
+    ],
+    "en": [
+     "MAP"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_021",
+   "type": "postharvest",
+   "canonical_name": "气调贮藏",
+   "aliases": {
+    "zh": [
+     "气调贮藏"
+    ],
+    "en": [
+     "controlled atmosphere"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_022",
+   "type": "postharvest",
+   "canonical_name": "硬度",
+   "aliases": {
+    "zh": [
+     "硬度"
+    ],
+    "en": [
+     "firmness"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_023",
+   "type": "postharvest",
+   "canonical_name": "货架期",
+   "aliases": {
+    "zh": [
+     "货架期"
+    ],
+    "en": [
+     "shelf life"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_024",
+   "type": "postharvest",
+   "canonical_name": "贮藏期",
+   "aliases": {
+    "zh": [
+     "贮藏期"
+    ],
+    "en": [
+     "storage life"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_025",
+   "type": "postharvest",
+   "canonical_name": "采后",
+   "aliases": {
+    "zh": [
+     "采后"
+    ],
+    "en": [
+     "postharvest"
+    ],
+    "th": [
+     "หลังการเก็บเกี่ยว"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_026",
+   "type": "postharvest",
+   "canonical_name": "采收",
+   "aliases": {
+    "zh": [
+     "采收"
+    ],
+    "en": [
+     "harvest",
+     "harvesting"
+    ],
+    "th": [
+     "เก็บเกี่ยว"
+    ],
+    "ms": [
+     "penuaian"
+    ]
+   },
+   "related_entities": [],
+   "source_categories": [
+    "malay_common",
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "POSTHARVEST_027",
+   "type": "postharvest",
+   "canonical_name": "预冷",
+   "aliases": {
+    "zh": [
+     "预冷"
+    ],
+    "en": [
+     "precooling"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "postharvest"
+   ]
+  },
+  {
+   "canonical_id": "SYMPTOM_001",
+   "type": "symptom",
+   "canonical_name": "叶片发黄",
+   "aliases": {
+    "zh": [
+     "叶片发黄"
+    ],
+    "en": [],
+    "th": [
+     "ใบเหลือง"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "symptom"
+   ]
+  },
+  {
+   "canonical_id": "SYMPTOM_002",
+   "type": "symptom",
+   "canonical_name": "症状",
+   "aliases": {
+    "zh": [
+     "症状"
+    ],
+    "en": [],
+    "th": [
+     "อาการ"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "symptom"
+   ]
+  },
+  {
+   "canonical_id": "SYMPTOM_003",
+   "type": "symptom",
+   "canonical_name": "腐烂",
+   "aliases": {
+    "zh": [
+     "腐烂"
+    ],
+    "en": [],
+    "th": [
+     "เน่า"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "symptom"
+   ]
+  },
+  {
+   "canonical_id": "SYMPTOM_004",
+   "type": "symptom",
+   "canonical_name": "萎蔫",
+   "aliases": {
+    "zh": [
+     "萎蔫"
+    ],
+    "en": [],
+    "th": [
+     "เหี่ยว"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "symptom"
+   ]
+  },
+  {
+   "canonical_id": "SYMPTOM_005",
+   "type": "symptom",
+   "canonical_name": "落叶",
+   "aliases": {
+    "zh": [
+     "落叶"
+    ],
+    "en": [],
+    "th": [
+     "ใบร่วง"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "symptom"
+   ]
+  },
+  {
+   "canonical_id": "SYMPTOM_006",
+   "type": "symptom",
+   "canonical_name": "裂果",
+   "aliases": {
+    "zh": [
+     "裂果"
+    ],
+    "en": [],
+    "th": [
+     "ผลแตก"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "symptom"
+   ]
+  },
+  {
+   "canonical_id": "TERM_001",
+   "type": "unknown",
+   "canonical_name": "2026-09-02",
+   "aliases": {
+    "zh": [],
+    "en": [
+     "2026-09-02",
+     "created"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "_meta"
+   ]
+  },
+  {
+   "canonical_id": "TERM_002",
+   "type": "unknown",
+   "canonical_name": "切勿把 Kan Yao(泰国长柄) 误译为猫山王(马来西亚 Musang King)。首次测试时因 prompt 列举顺序导致模型按位置硬凑，产生了这个错误。",
+   "aliases": {
+    "zh": [
+     "切勿把 Kan Yao(泰国长柄) 误译为猫山王(马来西亚 Musang King)。首次测试时因 prompt 列举顺序导致模型按位置硬凑，产生了这个错误。"
+    ],
+    "en": [
+     "warning"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "_meta"
+   ]
+  },
+  {
+   "canonical_id": "TERM_003",
+   "type": "unknown",
+   "canonical_name": "品种名译法以项目中文语料里的既有用法为准，不自创。频次来自 rag_build/chunks.jsonl 实测。",
+   "aliases": {
+    "zh": [
+     "品种名译法以项目中文语料里的既有用法为准，不自创。频次来自 rag_build/chunks.jsonl 实测。"
+    ],
+    "en": [
+     "principle"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "_meta"
+   ]
+  },
+  {
+   "canonical_id": "TERM_004",
+   "type": "unknown",
+   "canonical_name": "实测 durian-base 对泰文的 ทุเรียน(durian) 识别不稳，曾误译为芒果/荔枝。因此 fruit_identity 段必须无条件注入 prompt，并加译后校验。",
+   "aliases": {
+    "zh": [],
+    "en": [
+     "warning2"
+    ],
+    "th": [
+     "实测 durian-base 对泰文的 ทุเรียน(durian) 识别不稳，曾误译为芒果/荔枝。因此 fruit_identity 段必须无条件注入 prompt，并加译后校验。"
+    ],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "_meta"
+   ]
+  },
+  {
+   "canonical_id": "TERM_005",
+   "type": "unknown",
+   "canonical_name": "榴莲领域术语表，用于离线翻译时统一译名，防止同一术语在不同 chunk 里译法不一致而割裂检索",
+   "aliases": {
+    "zh": [
+     "榴莲领域术语表，用于离线翻译时统一译名，防止同一术语在不同 chunk 里译法不一致而割裂检索"
+    ],
+    "en": [
+     "purpose"
+    ],
+    "th": [],
+    "ms": []
+   },
+   "related_entities": [],
+   "source_categories": [
+    "_meta"
+   ]
+  }
+ ]
+}

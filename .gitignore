@@ -53,6 +53,7 @@ raw/
 !rag_build/
 rag_build/*
 !rag_build/glossary.json
+!rag_build/glossary_v2.json
 !rag_build/translations.jsonl
 !rag_build/chunks.jsonl
 !rag_build/chunks_translated.jsonl

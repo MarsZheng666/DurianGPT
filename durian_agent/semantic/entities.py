@@ -96,3 +96,63 @@ def detect_entities(text: str) -> Dict[str, str]:
                 break
 
     return result
+
+
+# ══════════ v2：canonical_id 识别（§9，任务 #15）══════════
+
+#: v2 type → §6 实体槽位（与 ENTITY_SLOT_BY_CATEGORY 对齐）
+_SLOT_BY_TYPE = {
+    "cultivar": "cultivar",
+    "disease": "disease",
+    "pest": "pest",
+    "nutrient": "fertilizer",
+}
+
+
+@lru_cache(maxsize=1)
+def _v2_id_index() -> Tuple[Tuple[str, str, str], ...]:
+    """(匹配键小写, canonical_id, 槽位) 按键长降序——从 glossary_v2 构建。"""
+    from durian_agent.glossary import load_glossary_v2
+
+    data = load_glossary_v2()
+    entries: List[Tuple[str, str, str]] = []
+    for entry in (data or {}).get("entries", []):
+        slot = _SLOT_BY_TYPE.get(entry.get("type", ""))
+        if not slot:
+            continue
+        forms = {entry["canonical_name"]}
+        for lang_aliases in entry.get("aliases", {}).values():
+            forms.update(lang_aliases)
+        for form in forms:
+            folded = form.casefold()
+            if len(folded) >= 2 or any("\u4e00" <= ch <= "\u9fff" for ch in folded):
+                entries.append((folded, entry["canonical_id"], slot))
+    entries.sort(key=lambda item: len(item[0]), reverse=True)
+    return tuple(entries)
+
+
+def detect_entities_with_ids(text: str) -> Dict[str, str]:
+    """§9 正名形态：alias → canonical_id（如 D197 → CULTIVAR_xxx）。
+
+    与 detect_entities 同规则（最长优先、同一槽位取最长命中），
+    值为 canonical_id 而非标准名。
+    """
+    value = normalize_input(text, fold_case=True)
+    result: Dict[str, str] = {}
+    for alias, canonical_id, slot in _v2_id_index():
+        if slot in result:
+            continue
+        if alias in value:
+            result[slot] = canonical_id
+    for patterns, prefix, slot in (
+        (_ORCHARD_PATTERNS, "ORCHARD", "orchard"),
+        (_PLOT_PATTERNS, "PLOT", "plot"),
+    ):
+        if slot in result:
+            continue
+        for pattern in patterns:
+            m = pattern.search(value)
+            if m:
+                result[slot] = f"{prefix}_{int(m.group(1))}"
+                break
+    return result
