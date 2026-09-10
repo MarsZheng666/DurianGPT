@@ -74,9 +74,11 @@ class DurianAgentGraph:
         retriever: Optional[FourWayRetriever] = None,
         max_retrievals: int = MAX_RETRIEVALS,
         checkpointer=None,
+        reranker=None,
     ):
         self.llm = llm
         self.retriever = retriever
+        self.reranker = reranker
         self.max_retrievals = max_retrievals
         self._parser = SemanticParser(llm)
         self._simple = SimpleAgent(llm) if llm is not None else None
@@ -162,8 +164,15 @@ class DurianAgentGraph:
         return {"reranked_docs": reranked}
 
     def _rerank(self, state: AgentState) -> Dict[str, Any]:
-        """占位（#28 Phase2）：透传 RRF 序，Cross Encoder 重排后替换。"""
-        return {}
+        """Cross Encoder 重排（§27，#32）：RRF 序 → rerank 分 → Top5。"""
+        if self.reranker is None:
+            return {}   # 未配置重排器：透传 RRF 序（阶段一行为）
+        from durian_agent.rag.rerank import rerank_documents
+
+        docs = state.get("reranked_docs", [])
+        reranked = rerank_documents(
+            state.get("normalized_query", ""), docs, self.reranker, top_k=5)
+        return {"reranked_docs": reranked}
 
     def _evidence_check(self, state: AgentState) -> Dict[str, Any]:
         """五项判断（§29，#30）：实体覆盖/核心条件/数值条件/来源冲突/单点。"""
