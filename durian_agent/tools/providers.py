@@ -98,3 +98,30 @@ class InMemoryAssets:
                 if a["type"] == asset_type
                 and (orchard is None or a.get("orchard") == orchard
                      or a.get("id") == orchard)]
+
+
+class AlarmProvider(Protocol):
+    def query(self, orchard: Optional[str] = None,
+              status: Optional[str] = None) -> List[Dict]: ...
+
+
+class InMemoryAlarms:
+    """确定性告警 mock。"""
+
+    _ALARMS = [
+        {"id": "ALM-101", "orchard": "ORCHARD_3", "level": "高",
+         "message": "PLOT_5 土壤湿度低于 30%，需检查滴灌", "status": "active",
+         "raised": "2026-09-10T06:30"},
+        {"id": "ALM-102", "orchard": "ORCHARD_3", "level": "中",
+         "message": "SENSOR-31 离线超过 2 小时", "status": "active",
+         "raised": "2026-09-10T07:10"},
+        {"id": "ALM-103", "orchard": "ORCHARD_5", "level": "低",
+         "message": "五号园东侧围栏传感器电量低", "status": "resolved",
+         "raised": "2026-09-09T15:00"},
+    ]
+
+    def query(self, orchard: Optional[str] = None,
+              status: Optional[str] = None) -> List[Dict]:
+        return [a for a in self._ALARMS
+                if (orchard is None or a["orchard"] == orchard)
+                and (status is None or a["status"] == status)]
