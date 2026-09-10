@@ -68,6 +68,7 @@ class GraphState(AgentState, total=False):
     rag_forced: bool
     tenant_id: str
     user_orchard_scope: list
+    memory_compressions: int
 
 
 class DurianAgentGraph:
@@ -314,14 +315,23 @@ class DurianAgentGraph:
             "pending_tool_calls": [],
             "react_steps": state.get("react_steps", 0) + 1,
         }
+        # §4 tool_calls 留痕（§52 Trace 消费）：LastValue 通道需整表返回
+        tool_log = list(state.get("tool_calls") or [])
         for index, call in enumerate(calls):
             observation = self.tools.execute(
                 call.get("tool", ""), call.get("args") or {}, ctx)
+            tool_log.append({
+                "tool_name": call.get("tool", ""),
+                "arguments": call.get("args") or {},
+                "status": "ok" if not str(observation).startswith(
+                    ("工具执行失败", "权限不足", "工具不存在")) else "error",
+            })
             patch.setdefault("messages", []).append(
                 ToolMessage(content=observation,
                             tool_call_id=f"call-{patch['react_steps']}-{index}"))
             pending = parse_pending_confirmation(observation)
             if pending:
+                patch["tool_calls"] = tool_log
                 patch["pending_confirmation"] = {
                     "confirmation_id": f"cfm-{uuid.uuid4().hex[:10]}",
                     **pending,
@@ -331,6 +341,7 @@ class DurianAgentGraph:
                     f"{pending['args'].get('title', '')}".strip())
                 patch["react_done"] = True
                 return patch
+        patch["tool_calls"] = tool_log
         if "reranked_docs" in tool_state:
             patch["reranked_docs"] = tool_state["reranked_docs"]
         if "evidence_sufficient" in tool_state:
@@ -364,6 +375,8 @@ class DurianAgentGraph:
         if result["trimmed_ids"]:
             patch["messages"] = [RemoveMessage(id=mid)
                                  for mid in result["trimmed_ids"]]
+            patch["memory_compressions"] = \
+                state.get("memory_compressions", 0) + 1
         return patch
 
     def _answer(self, state: GraphState) -> Dict[str, Any]:
