@@ -178,10 +178,22 @@ class DurianAgentGraph:
                 "evidence_reasons": result["reasons"]}
 
     def _rewrite_query(self, state: AgentState) -> Dict[str, Any]:
-        """占位（#28 Phase2）：无 LLM 改写，退化为扩展查询重试。"""
-        queries = state.get("search_queries") or []
-        if len(queries) >= 3:
-            queries = [queries[2]] + queries[1:]   # 用 expanded 查询重试
+        """两层改写（§24/§47，#28）：LLM 层（§47 禁猜清单+数字护栏）→ 规则层兜底。"""
+        from durian_agent.rag.rewrite import rewrite_query
+
+        query = state["search_queries"][0] if state.get("search_queries") \
+            else state.get("normalized_query", "")
+        rewritten = rewrite_query(
+            query,
+            semantic=state.get("semantic"),
+            docs=state.get("reranked_docs"),
+            llm=self.llm,
+        )
+        queries = list(state.get("search_queries") or [])
+        if queries:
+            queries[0] = rewritten
+        else:
+            queries = [rewritten]
         return {"search_queries": queries,
                 "retry_count": state.get("retry_count", 0) + 1}
 
