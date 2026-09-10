@@ -45,3 +45,26 @@ class InMemoryWeather:
                 "temp_c_min": 24,
             })
         return out
+
+
+class SensorProvider(Protocol):
+    def soil_moisture(self, orchard: str,
+                      plot: Optional[str] = None) -> Optional[Dict]: ...
+
+
+class InMemorySensors:
+    """确定性土壤传感器 mock。"""
+
+    _PLOTS = {
+        ("ORCHARD_3", "PLOT_5"): {"moisture_pct": 42.0, "temp_c": 27.5,
+                                  "ph": 5.8, "updated": "2026-09-10T08:00"},
+        ("ORCHARD_3", None): {"moisture_pct": 45.0, "temp_c": 27.0,
+                              "ph": 5.9, "updated": "2026-09-10T08:00"},
+    }
+
+    def soil_moisture(self, orchard: str,
+                      plot: Optional[str] = None) -> Optional[Dict]:
+        data = self._PLOTS.get((orchard, plot))
+        if data:
+            return {**data, "orchard": orchard, "plot": plot}
+        return None
