@@ -1,0 +1,88 @@
+"""工具层基础（架构文档 §17/§39）。
+
+- ToolSpec：名字 + 描述 + 参数提示（进 ReAct prompt 的封闭工具清单）；
+- ToolRegistry：注册/执行；Agent 只注册当前用户允许的工具（§39，
+  角色过滤的强制执行在 #49，阶段五）；
+- ToolContext：用户身份 + 图状态引用（RAG 工具回写证据用）。
+
+工具执行契约：fn(args: dict, ctx: ToolContext) -> str（Observation 文本）。
+异常不逃逸——捕获后返回错误文本作为 Observation，ReAct 可据此换路。
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Optional
+
+#: §39 角色工具表（数据化，可审计；alarm/user_context 未在 §39 分配，暂全员可用）
+ROLE_TOOLS: Dict[str, frozenset] = {
+    "worker": frozenset({"agriculture_rag", "asset_query", "task_query"}),
+    "manager": frozenset({
+        "agriculture_rag", "asset_query", "task_query",
+        "task_create", "task_update", "weather", "sensor",
+    }),
+    # admin：§39 为「更多管理工具」，具体清单阶段五 #49 细化
+}
+
+
+@dataclass
+class ToolSpec:
+    name: str
+    description: str
+    args_hint: str = ""
+
+
+@dataclass
+class ToolContext:
+    """工具执行上下文。state 为图状态的引用（工具可回写证据等）。"""
+    user_id: str = "anonymous"
+    role: str = "worker"
+    thread_id: str = ""
+    language: str = "zh"
+    orchard_scope: List[str] = field(default_factory=list)
+    state: Optional[Dict[str, Any]] = None
+
+
+ToolFn = Callable[[Dict[str, Any], ToolContext], str]
+
+
+class ToolError(Exception):
+    pass
+
+
+class ToolRegistry:
+    """工具注册表。"""
+
+    def __init__(self):
+        self._tools: Dict[str, tuple] = {}
+
+    def register(self, spec: ToolSpec, fn: ToolFn) -> None:
+        self._tools[spec.name] = (spec, fn)
+
+    def has(self, name: str) -> bool:
+        return name in self._tools
+
+    def specs(self) -> List[ToolSpec]:
+        return [spec for spec, _ in self._tools.values()]
+
+    def spec_text(self) -> str:
+        """进 ReAct prompt 的工具清单文本。"""
+        lines = []
+        for spec in self._tools.values():
+            hint = f" args: {spec.args_hint}" if spec.args_hint else ""
+            lines.append(f"- {spec.name}: {spec.description}{hint}")
+        return "\n".join(lines)
+
+    def execute(self, name: str, args: Dict[str, Any],
+                ctx: ToolContext) -> str:
+        """执行工具；未注册/执行异常都转成错误 Observation（不逃逸）。"""
+        entry = self._tools.get(name)
+        if entry is None:
+            return f"工具不存在: {name}"
+        _, fn = entry
+        try:
+            return fn(args or {}, ctx)
+        except ToolError as exc:
+            return f"工具拒绝: {exc}"
+        except Exception as exc:  # noqa: BLE001 —— Observation 语义需要兜底
+            return f"工具执行失败: {type(exc).__name__}: {exc}"
